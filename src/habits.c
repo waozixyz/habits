@@ -14,7 +14,7 @@ static HabitIcon HABIT_ICONS[] = {
     {.url = "images/icons/trash.png", .dimensions = {24, 24}}
 };
 
-static void* habit_icon_images[4] = {NULL};
+static void* habit_icon_images[3] = {NULL};
 
 void InitializeHabitIcons(Rocks* rocks) {
     for (int i = 0; i < 3; i++) {
@@ -59,7 +59,21 @@ static void HandleEditButtonClick(Clay_ElementId elementId, Clay_PointerData poi
 void HandleAddWeekRow(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
     if (pointerInfo.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
     
-    habits.weeks_to_display++; 
+    habits.weeks_to_display += 1;
+    SaveHabits(&habits);
+}
+
+void HandleAddMonthRow(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+    if (pointerInfo.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    
+    habits.weeks_to_display += 4;
+    SaveHabits(&habits);
+}
+
+void HandleTogglePastWeeks(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+    if (pointerInfo.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
+    
+    habits.show_past_weeks = !habits.show_past_weeks;
     SaveHabits(&habits);
 }
 
@@ -432,7 +446,6 @@ void RenderHabitTabBar() {
         }
     }
 }
-
 void InitializeHabitsPage(Rocks* rocks) {
     if (!rocks) return;
     printf("Initializing habits page\n");
@@ -447,6 +460,9 @@ void InitializeHabitsPage(Rocks* rocks) {
     printf("Creating text input\n");
     habits.habit_name_input = Rocks_CreateTextInput(NULL, HandleHabitNameSubmit);
     printf("Text input: %p\n", (void*)habits.habit_name_input);
+
+    habits.show_past_weeks = false;  // Add this line
+    habits.weeks_to_display = 10;  // Add this line
 
     Habit* active_habit = GetActiveHabit(&habits);
     if (active_habit) {
@@ -470,7 +486,6 @@ void CleanupHabitsPage(Rocks* rocks) {
     CleanupColorPicker();
     memset(&habits, 0, sizeof(habits));
 }
-
 void RenderHabitsPage(float dt) {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -500,7 +515,6 @@ void RenderHabitsPage(float dt) {
         habits.weeks_to_display = 10; 
     }
 
-
     struct tm end_date = start_date;
     end_date.tm_mday += (habits.weeks_to_display * 7) - 1;  
     mktime(&end_date);
@@ -520,6 +534,28 @@ void RenderHabitsPage(float dt) {
     }) {
         RenderHabitTabBar();
         RenderHabitHeader();
+
+        // Add toggle past weeks button
+        CLAY({
+            .id = CLAY_ID("TogglePastWeeksButton"),
+            .layout = {
+                .sizing = {
+                    .width = CLAY_SIZING_FIT(0),
+                    .height = CLAY_SIZING_FIT(0)
+                },
+                .padding = CLAY_PADDING_ALL(8)
+            },
+            .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+            .cornerRadius = CLAY_CORNER_RADIUS(4)
+        }) {
+            Clay_OnHover(HandleTogglePastWeeks, 0);
+            Clay_String debugText = CLAY_STRING(habits.show_past_weeks ? "Hide Past Weeks" : "Show Past Weeks");
+            CLAY_TEXT(debugText, CLAY_TEXT_CONFIG({
+                .fontSize = 16,
+                .fontId = FONT_ID_BODY_16,
+                .textColor = base_theme.text
+            }));
+        }
             
         CLAY({
             .id = CLAY_ID("ColorAndDatePickerContainer"),
@@ -627,30 +663,28 @@ void RenderHabitsPage(float dt) {
                 int total_weeks = (total_days + 6) / 7;
 
                 struct tm current = start_date;
-
                 current.tm_hour = 0;
                 current.tm_min = 0;
                 current.tm_sec = 0;
 
                 int unique_index = 0;
 
-                // Find today's row for initial scroll position
-                int today_row = -1;
                 struct tm today = *localtime(&now);
+
                 for (int row = 0; row < total_weeks; row++) {
+                    // Calculate if this is a past week
                     struct tm week_start = start_date;
                     week_start.tm_mday += (row * 7);
                     mktime(&week_start);
                     
-                    if (week_start.tm_year == today.tm_year && 
-                        week_start.tm_mon == today.tm_mon &&
-                        abs(week_start.tm_mday - today.tm_mday) < 7) {
-                        today_row = row;
-                        break;
+                    // Skip past weeks if they're hidden
+                    if (!habits.show_past_weeks && week_start.tm_mday < today.tm_mday) {
+                        current.tm_mday += 7;
+                        unique_index += 7;
+                        mktime(&current);
+                        continue;
                     }
-                }
 
-                for (int row = 0; row < total_weeks; row++) {
                     // Existing week row rendering
                     CLAY({
                         .id = CLAY_IDI("WeekRow", row),
@@ -694,23 +728,9 @@ void RenderHabitsPage(float dt) {
                             unique_index++;
                         }
                     }
-
-                    if (row == today_row) {
-                        CLAY({
-                            .id = CLAY_ID("TodayRowMarker"),
-                            .floating = {
-                                .attachTo = CLAY_ATTACH_TO_PARENT,
-                                .attachPoints = {
-                                    .element = CLAY_ATTACH_POINT_CENTER_CENTER,
-                                    .parent = CLAY_ATTACH_POINT_CENTER_CENTER
-                                }
-                            }
-                        }) {}
-                    }
-                    
                 }
             
-                // Add week row controls at bottom
+                // Modified week controls with both Week and Month buttons
                 CLAY({
                     .id = CLAY_ID("WeekControls"),
                     .layout = {
@@ -718,7 +738,7 @@ void RenderHabitsPage(float dt) {
                             .width = CLAY_SIZING_GROW(),
                             .height = CLAY_SIZING_FIT(0)
                         },
-                        .childGap = 8,
+                        .childGap = 16,
                         .layoutDirection = CLAY_LEFT_TO_RIGHT,
                         .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
                     }
@@ -737,6 +757,26 @@ void RenderHabitsPage(float dt) {
                     }) {
                         Clay_OnHover(HandleAddWeekRow, 0);
                         CLAY_TEXT(CLAY_STRING("Add Week"), CLAY_TEXT_CONFIG({
+                            .fontSize = 16,
+                            .fontId = FONT_ID_BODY_16,
+                            .textColor = base_theme.text
+                        }));
+                    }
+
+                    CLAY({
+                        .id = CLAY_ID("AddMonthButton"),
+                        .layout = {
+                            .sizing = {
+                                .width = CLAY_SIZING_FIT(0),
+                                .height = CLAY_SIZING_FIT(0)
+                            },
+                            .padding = CLAY_PADDING_ALL(8)
+                        },
+                        .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                        .cornerRadius = CLAY_CORNER_RADIUS(4)
+                    }) {
+                        Clay_OnHover(HandleAddMonthRow, 0);
+                        CLAY_TEXT(CLAY_STRING("Add Month"), CLAY_TEXT_CONFIG({
                             .fontSize = 16,
                             .fontId = FONT_ID_BODY_16,
                             .textColor = base_theme.text

@@ -35,6 +35,7 @@ static cJSON* HabitToJSON(const Habit* habit, const HabitCollection* collection)
 
    cJSON_AddNumberToObject(habitObj, "start_date", (double)habit->start_date);  
    cJSON_AddNumberToObject(habitObj, "weeks_to_display", collection->weeks_to_display);
+   cJSON_AddBoolToObject(habitObj, "show_past_weeks", collection->show_past_weeks);
 
    cJSON* days = cJSON_CreateArray();
    for (size_t i = 0; i < habit->days_count; i++) {
@@ -96,6 +97,16 @@ static void LoadHabitFromJSON(Habit* habit, cJSON* habitObj, HabitCollection* co
        habit->start_date = time(NULL);
    }
     
+
+    
+   cJSON* show_past = cJSON_GetObjectItem(habitObj, "show_past_weeks");
+   if (show_past) {
+       collection->show_past_weeks = cJSON_IsTrue(show_past);
+   } else {
+       collection->show_past_weeks = false;  // Default to not showing past weeks
+   }
+
+
     cJSON* weeks = cJSON_GetObjectItem(habitObj, "weeks_to_display");
     if (weeks) {
         collection->weeks_to_display = weeks->valueint;
@@ -128,7 +139,6 @@ static void LoadHabitFromJSON(Habit* habit, cJSON* habitObj, HabitCollection* co
         }
     }
 }
-
 static void CreateDefaultHabitsJSON(HabitCollection* defaultCollection) {
    Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
 
@@ -137,6 +147,7 @@ static void CreateDefaultHabitsJSON(HabitCollection* defaultCollection) {
    default_habit->id = 0;
    default_habit->color = base_theme.primary;
    default_habit->days_count = 0;
+   defaultCollection->show_past_weeks = false;  // Add this line
 
    // Set the start date to the most recent past Monday
    time_t now = time(NULL);

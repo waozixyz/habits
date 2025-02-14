@@ -38,6 +38,10 @@ void ToggleHabitStateForDay(Clay_ElementId elementId, Clay_PointerData pointerIn
 // Main page render function
 void RenderHabitsPage(float dt);
 
+// Add these function declarations:
+void HandleAddMonthRow(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
+void HandleTogglePastWeeks(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
+
 // External state
 extern HabitCollection habits;
 

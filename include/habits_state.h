@@ -14,6 +14,9 @@
 #define MAX_CALENDAR_DAYS 1000
 #define MAX_HABITS 10
 #define MAX_HABIT_NAME 32
+
+bool show_past_weeks; 
+
 typedef struct {
     time_t date;      // Unix timestamp
     uint32_t day_index; // Index in the calendar grid
@@ -46,6 +49,7 @@ typedef struct {
     CollapsedRow collapsed_rows[MAX_CALENDAR_DAYS];
     size_t collapsed_rows_count;
     int weeks_to_display;
+    bool show_past_weeks;
 } HabitCollection;
 
 
