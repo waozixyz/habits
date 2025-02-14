@@ -1,8 +1,7 @@
 #include "habits.h"
+#include "habit_delete_modal.h"
 
 HabitCollection habits = {0};
-
-static Rocks_Modal* g_delete_habit_modal = NULL;
 
 typedef struct {
     const char* url;
@@ -12,14 +11,13 @@ typedef struct {
 static HabitIcon HABIT_ICONS[] = {
     {.url = "images/icons/check.png", .dimensions = {24, 24}},
     {.url = "images/icons/edit.png", .dimensions = {24, 24}},
-    {.url = "images/icons/trash.png", .dimensions = {24, 24}},
-    {.url = "images/icons/eye-closed.png", .dimensions = {24, 24}} 
+    {.url = "images/icons/trash.png", .dimensions = {24, 24}}
 };
 
 static void* habit_icon_images[4] = {NULL};
 
 void InitializeHabitIcons(Rocks* rocks) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         if (habit_icon_images[i]) {
             Rocks_UnloadImage(rocks, habit_icon_images[i]);
             habit_icon_images[i] = NULL;
@@ -34,16 +32,13 @@ void InitializeHabitIcons(Rocks* rocks) {
 }
 
 void CleanupHabitIcons(Rocks* rocks) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         if (habit_icon_images[i]) {
             Rocks_UnloadImage(rocks, habit_icon_images[i]);
             habit_icon_images[i] = NULL;
         }
     }
 }
-
-static uint32_t pending_delete_habit_id = 0;
-static char pending_delete_habit_name[MAX_HABIT_NAME] = {0};
 
 static void HandleEditButtonClick(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
     if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
@@ -59,35 +54,6 @@ static void HandleEditButtonClick(Clay_ElementId elementId, Clay_PointerData poi
         Rocks_StartTextInput();
         #endif
     }
-}
-
-void HandleRowCollapseToggle(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
-    if (pointerInfo.state != CLAY_POINTER_DATA_PRESSED_THIS_FRAME) return;
-
-    uint32_t row_index = (uint32_t)userData;
-    bool found = false;
-
-    // Check if row is already collapsed
-    for (size_t i = 0; i < habits.collapsed_rows_count; i++) {
-        if (habits.collapsed_rows[i].row_index == row_index) {
-            // Remove from collapsed list (expand)
-            for (size_t j = i; j < habits.collapsed_rows_count - 1; j++) {
-                habits.collapsed_rows[j] = habits.collapsed_rows[j + 1];
-            }
-            habits.collapsed_rows_count--;
-            found = true;
-            break;
-        }
-    }
-
-    // If not found, add to collapsed list
-    if (!found && habits.collapsed_rows_count < MAX_CALENDAR_DAYS) {
-        habits.collapsed_rows[habits.collapsed_rows_count].row_index = row_index;
-        habits.collapsed_rows[habits.collapsed_rows_count].is_collapsed = true;
-        habits.collapsed_rows_count++;
-    }
-
-    SaveHabits(&habits);
 }
 
 void HandleAddWeekRow(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
@@ -106,42 +72,6 @@ void HandleHeaderTitleClick(Clay_ElementId elementId, Clay_PointerData pointerIn
     if (!active_habit) {
         return;
     }
-}
-static void HandleDeleteButtonClick(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
-    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        uint32_t habit_id = (uint32_t)userData;
-        for (size_t i = 0; i < habits.habits_count; i++) {
-            if (habits.habits[i].id == habit_id) {
-                #ifdef CLAY_MOBILE
-                Rocks_StopTextInput();
-                #endif
-                
-                pending_delete_habit_id = habit_id;
-                strncpy(pending_delete_habit_name, habits.habits[i].name, MAX_HABIT_NAME - 1);
-                pending_delete_habit_name[MAX_HABIT_NAME - 1] = '\0';
-                Rocks_OpenModal(g_delete_habit_modal);
-                break;
-            }
-        }
-    }
-}
-static void HandleModalConfirm(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
-    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        DeleteHabit(&habits, pending_delete_habit_id);
-        habits.is_editing_new_habit = false;  
-        Rocks_CloseModal(g_delete_habit_modal);
-    }
-}
-
-static void HandleModalCancel(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
-    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        Rocks_CloseModal(g_delete_habit_modal);
-    }
-}
-
-void RenderDeleteHabitModal(void) {
-    if (!g_delete_habit_modal) return;
-    Rocks_RenderModal(g_delete_habit_modal);
 }
 
 void HandleHabitNameSubmit(const char* text) {
@@ -224,103 +154,6 @@ void ToggleHabitStateForDay(Clay_ElementId elementId, Clay_PointerData pointerIn
 
 void HandleColorChange(Clay_Color new_color) {
     UpdateHabitColor(&habits, new_color);
-}
-
-void RenderDeleteModalContent() {
-    Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
-    QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
-
-    CLAY({
-        .id = CLAY_ID("DeleteModalContent"),
-        .layout = {
-            .sizing = { CLAY_SIZING_GROW(), CLAY_SIZING_GROW() },
-            .childGap = 24,
-            .layoutDirection = CLAY_TOP_TO_BOTTOM
-        }
-    }) {
-        CLAY_TEXT(CLAY_STRING("Delete Habit"), 
-            CLAY_TEXT_CONFIG({
-                .fontSize = 24,
-                .fontId = FONT_ID_BODY_24,
-                .textColor = base_theme.text
-            })
-        );
-
-        CLAY_TEXT(CLAY_STRING("Are you sure you want to delete:"),
-            CLAY_TEXT_CONFIG({
-                .fontSize = 16,
-                .fontId = FONT_ID_BODY_16,
-                .textColor = base_theme.text
-            })
-        );
-
-        CLAY({
-            .layout = {
-                .padding = CLAY_PADDING_ALL(16),
-                .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
-            },
-            .backgroundColor = base_theme.background,
-            .cornerRadius = CLAY_CORNER_RADIUS(4)
-        }) {
-            Clay_String habit_name = {
-                .length = strlen(pending_delete_habit_name),
-                .chars = pending_delete_habit_name
-            };
-            CLAY_TEXT(habit_name,
-                CLAY_TEXT_CONFIG({
-                    .fontSize = 18,
-                    .fontId = FONT_ID_BODY_16,
-                    .textColor = base_theme.text
-                })
-            );
-        }
-
-        CLAY({
-            .layout = {
-                .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                .childGap = 8,
-                .childAlignment = { .x = CLAY_ALIGN_X_RIGHT }
-            }
-        }) {
-            CLAY({
-                .id = CLAY_ID("CancelButton"),
-                .layout = {
-                    .padding = CLAY_PADDING_ALL(8),
-                    .sizing = { CLAY_SIZING_FIT(0), CLAY_SIZING_FIT(0) }
-                },
-                .backgroundColor = base_theme.background,
-                .cornerRadius = CLAY_CORNER_RADIUS(4)
-            }) {
-                Clay_OnHover(HandleModalCancel, 0);
-                CLAY_TEXT(CLAY_STRING("Cancel"),
-                    CLAY_TEXT_CONFIG({
-                        .fontSize = 16,
-                        .fontId = FONT_ID_BODY_16,
-                        .textColor = base_theme.text
-                    })
-                );
-            }
-
-            CLAY({
-                .id = CLAY_ID("ConfirmButton"),
-                .layout = {
-                    .padding = CLAY_PADDING_ALL(8),
-                    .sizing = { CLAY_SIZING_FIT(0), CLAY_SIZING_FIT(0) }
-                },
-                .backgroundColor = theme->danger,
-                .cornerRadius = CLAY_CORNER_RADIUS(4)
-            }) {
-                Clay_OnHover(HandleModalConfirm, 0);
-                CLAY_TEXT(CLAY_STRING("Delete"),
-                    CLAY_TEXT_CONFIG({
-                        .fontSize = 16,
-                        .fontId = FONT_ID_BODY_16,
-                        .textColor = base_theme.text
-                    })
-                );
-            }
-        }
-    }
 }
 
 void RenderHabitTab(const Habit* habit) {
@@ -621,9 +454,7 @@ void InitializeHabitsPage(Rocks* rocks) {
     }
 
     InitializeHabitIcons(rocks);
-
-    g_delete_habit_modal = Rocks_CreateModal(300, 300, RenderDeleteModalContent, NULL);
-
+    InitializeDeleteModal();
 }
 
 void CleanupHabitsPage(Rocks* rocks) {
@@ -633,10 +464,7 @@ void CleanupHabitsPage(Rocks* rocks) {
         Rocks_DestroyTextInput(habits.habit_name_input);
         habits.habit_name_input = NULL;
     }
-    if (g_delete_habit_modal) {
-        Rocks_DestroyModal(g_delete_habit_modal);
-        g_delete_habit_modal = NULL;
-    }
+    CleanupDeleteModal();
     CleanupHabitIcons(rocks);
     CleanupDatePicker();
     CleanupColorPicker();
@@ -711,7 +539,7 @@ void RenderHabitsPage(float dt) {
         }) {
             RenderColorPicker(active_habit->color, HandleColorChange);
             RenderDatePicker(active_habit->start_date, HandleDateChange);
-            if (g_delete_habit_modal && g_delete_habit_modal->is_open) {
+            if (IsDeleteModalOpen()) {
                 RenderDeleteHabitModal();
             }
         }
@@ -823,108 +651,50 @@ void RenderHabitsPage(float dt) {
                 }
 
                 for (int row = 0; row < total_weeks; row++) {
-                    bool is_collapsed = false;
-                    for (size_t i = 0; i < habits.collapsed_rows_count; i++) {
-                        if (habits.collapsed_rows[i].row_index == row) {
-                            is_collapsed = true;
-                            break;
-                        }
-                    }
-
-                    if (is_collapsed) {
-                        // When collapsing, skip 7 days
-                        current.tm_mday += 7;
-                        unique_index += 7;
-                        mktime(&current);  // Important: normalize the date after adding days
-
-                        // Render collapsed row
-                        CLAY({
-                            .id = CLAY_IDI("WeekRowCollapsed", row),
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_GROW(),
-                                    .height = CLAY_SIZING_FIXED(4)
-                                },
-                                .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
+                    // Existing week row rendering
+                    CLAY({
+                        .id = CLAY_IDI("WeekRow", row),
+                        .layout = {
+                            .sizing = {
+                                .width = CLAY_SIZING_GROW(),
+                                .height = CLAY_SIZING_FIT(0)
                             },
-                            .backgroundColor = base_theme.secondary,
-                            .cornerRadius = CLAY_CORNER_RADIUS(2)
-                        }) {
-                            Clay_OnHover(HandleRowCollapseToggle, row);
+                            .childGap = 10,
+                            .layoutDirection = CLAY_LEFT_TO_RIGHT,
+                            .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
                         }
-        
-                    } else {
-                        // Existing week row rendering
-                        CLAY({
-                            .id = CLAY_IDI("WeekRow", row),
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_GROW(),
-                                    .height = CLAY_SIZING_FIT(0)
-                                },
-                                .childGap = 10,
-                                .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                                .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
-                            }
-                        }) {
-                            // Add collapse button
-                            CLAY({
-                                .id = CLAY_IDI("CollapseButton", row),
-                                .layout = {
-                                    .sizing = {
-                                        .width = CLAY_SIZING_FIXED(24),
-                                        .height = CLAY_SIZING_FIXED(24)
-                                    }
-                                },
-                                .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
-                                .cornerRadius = CLAY_CORNER_RADIUS(4)
-                            }) {
-                                Clay_OnHover(HandleRowCollapseToggle, row);
-                                CLAY({
-                                    .layout = {
-                                        .sizing = {
-                                            .width = CLAY_SIZING_FIXED(16),
-                                            .height = CLAY_SIZING_FIXED(16)
-                                        }
-                                    },
-                                    .image = {
-                                        .sourceDimensions = HABIT_ICONS[3].dimensions,
-                                        .imageData = habit_icon_images[3]
-                                    }
-                                }) {}
-                            }
-                        
-                            for (int col = 0; col < 7; col++) {
-                                time_t current_timestamp = mktime(&current);
-                                bool is_today = (current_timestamp == today_timestamp);
-                                bool is_past = (current_timestamp < today_timestamp);
+                    }) {
+                        for (int col = 0; col < 7; col++) {
+                            time_t current_timestamp = mktime(&current);
+                            bool is_today = (current_timestamp == today_timestamp);
+                            bool is_past = (current_timestamp < today_timestamp);
 
-                                bool is_completed = false;
-                                for (size_t i = 0; i < active_habit->days_count; i++) {
-                                    if (active_habit->calendar_days[i].day_index == unique_index &&
-                                        active_habit->calendar_days[i].completed) {
-                                        is_completed = true;
-                                        break;
-                                    }
+                            bool is_completed = false;
+                            for (size_t i = 0; i < active_habit->days_count; i++) {
+                                if (active_habit->calendar_days[i].day_index == unique_index &&
+                                    active_habit->calendar_days[i].completed) {
+                                    is_completed = true;
+                                    break;
                                 }
-
-                                CalendarBoxProps props = {
-                                    .day_number = current.tm_mday,
-                                    .is_today = is_today,
-                                    .is_past = is_past,
-                                    .unique_index = unique_index,
-                                    .is_completed = is_completed,
-                                    .on_click = ToggleHabitStateForDay,
-                                    .custom_color = active_habit->color
-                                };
-
-                                RenderCalendarBox(props);
-
-                                current.tm_mday++;
-                                unique_index++;
                             }
+
+                            CalendarBoxProps props = {
+                                .day_number = current.tm_mday,
+                                .is_today = is_today,
+                                .is_past = is_past,
+                                .unique_index = unique_index,
+                                .is_completed = is_completed,
+                                .on_click = ToggleHabitStateForDay,
+                                .custom_color = active_habit->color
+                            };
+
+                            RenderCalendarBox(props);
+
+                            current.tm_mday++;
+                            unique_index++;
                         }
                     }
+
                     if (row == today_row) {
                         CLAY({
                             .id = CLAY_ID("TodayRowMarker"),
@@ -937,41 +707,42 @@ void RenderHabitsPage(float dt) {
                             }
                         }) {}
                     }
+                    
                 }
-                
-                    // Add week row controls at bottom
+            
+                // Add week row controls at bottom
+                CLAY({
+                    .id = CLAY_ID("WeekControls"),
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_GROW(),
+                            .height = CLAY_SIZING_FIT(0)
+                        },
+                        .childGap = 8,
+                        .layoutDirection = CLAY_LEFT_TO_RIGHT,
+                        .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
+                    }
+                }) {
                     CLAY({
-                        .id = CLAY_ID("WeekControls"),
+                        .id = CLAY_ID("AddWeekButton"),
                         .layout = {
                             .sizing = {
-                                .width = CLAY_SIZING_GROW(),
+                                .width = CLAY_SIZING_FIT(0),
                                 .height = CLAY_SIZING_FIT(0)
                             },
-                            .childGap = 8,
-                            .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                            .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
-                        }
+                            .padding = CLAY_PADDING_ALL(8)
+                        },
+                        .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                        .cornerRadius = CLAY_CORNER_RADIUS(4)
                     }) {
-                        CLAY({
-                            .id = CLAY_ID("AddWeekButton"),
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_FIT(0),
-                                    .height = CLAY_SIZING_FIT(0)
-                                },
-                                .padding = CLAY_PADDING_ALL(8)
-                            },
-                            .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
-                            .cornerRadius = CLAY_CORNER_RADIUS(4)
-                        }) {
-                            Clay_OnHover(HandleAddWeekRow, 0);
-                            CLAY_TEXT(CLAY_STRING("Add Week"), CLAY_TEXT_CONFIG({
-                                .fontSize = 16,
-                                .fontId = FONT_ID_BODY_16,
-                                .textColor = base_theme.text
-                            }));
-                        }
+                        Clay_OnHover(HandleAddWeekRow, 0);
+                        CLAY_TEXT(CLAY_STRING("Add Week"), CLAY_TEXT_CONFIG({
+                            .fontSize = 16,
+                            .fontId = FONT_ID_BODY_16,
+                            .textColor = base_theme.text
+                        }));
                     }
+                }
             }
         }
     }
