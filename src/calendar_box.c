@@ -57,30 +57,42 @@ static Clay_Color GenerateFutureColor(Clay_Color color) {
         .a = color.a
     });
 }
-
 void RenderCalendarBox(CalendarBoxProps props) {    
-    if (props.day_number < 0 || props.day_number > 31) {
-        printf("Error: Invalid day number %d\n", props.day_number);
+    // Create a copy of the props on the heap
+    CalendarBoxProps* unique_props = malloc(sizeof(CalendarBoxProps));
+    if (!unique_props) {
+        printf("Error: Failed to allocate memory for calendar box props\n");
+        return;
+    }
+    *unique_props = props;  // Make a full copy of the props
+
+    if (unique_props->day_number < 0 || unique_props->day_number > 31) {
+        printf("Error: Invalid day number %d\n", unique_props->day_number);
+        free(unique_props);
         return;
     }
     if (!GRocks) {
         printf("Error: GRocks is null\n");
+        free(unique_props);
         return;
     }
-    
+
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     if (!base_theme.extension) {
         printf("Error: Theme extension is null\n");
+        free(unique_props);
         return;
     }
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
     if (!theme) {
         printf("Error: Theme is null\n");
+        free(unique_props);
         return;
     }
     
     if (windowWidth <= 0) {
         printf("Error: Invalid window width\n");
+        free(unique_props);
         return;
     }
     float screenWidth = (float)windowWidth;
@@ -90,25 +102,26 @@ void RenderCalendarBox(CalendarBoxProps props) {
     float boxSize = screenWidth * 0.1f;
     boxSize = fmaxf(MIN_BOX_SIZE, fminf(boxSize, MAX_BOX_SIZE));
 
-    if (props.day_number >= sizeof(DAY_STRINGS)/sizeof(DAY_STRINGS[0])) {
-        printf("Error: Day number %d exceeds DAY_STRINGS array bounds\n", props.day_number);
+    if (unique_props->day_number >= sizeof(DAY_STRINGS)/sizeof(DAY_STRINGS[0])) {
+        printf("Error: Day number %d exceeds DAY_STRINGS array bounds\n", unique_props->day_number);
+        free(unique_props);
         return;
     }
 
-    Clay_Color base_color = props.custom_color;
+    Clay_Color base_color = unique_props->custom_color;
     base_color.a = 70.0f;
     Clay_Color box_color = base_color;
     Clay_Color hover_color = base_color;
     
-    if (props.is_past) {
+    if (unique_props->is_past) {
         box_color = GeneratePastColor(base_color);
         hover_color = GenerateHoverColor(box_color);
-    } else if (!props.is_past && !props.is_today) {
+    } else if (!unique_props->is_past && !unique_props->is_today) {
         box_color = GenerateFutureColor(base_color);
         hover_color = GenerateHoverColor(base_color);
     }
 
-    if (props.is_completed) {
+    if (unique_props->is_completed) {
         box_color = GenerateCompletedColor(base_color);
         hover_color = GenerateHoverColor(box_color);
     }
@@ -117,7 +130,7 @@ void RenderCalendarBox(CalendarBoxProps props) {
     int fontSize = (int)(boxSize * 0.25f);
 
     CLAY({
-        .id = CLAY_IDI("Box", props.unique_index),
+        .id = CLAY_IDI("Box", unique_props->date),
         .layout = {
             .sizing = {
                 .width = CLAY_SIZING_FIXED(boxSize),
@@ -129,18 +142,20 @@ void RenderCalendarBox(CalendarBoxProps props) {
             }
         },
         .backgroundColor = Clay_Hovered() ? hover_color : box_color,
-        .border = props.is_today ? (Clay_BorderElementConfig){
+        .border = unique_props->is_today ? (Clay_BorderElementConfig){
             .color = today_border_color,
             .width = CLAY_BORDER_ALL(2)
         } : (Clay_BorderElementConfig){0},
         .cornerRadius = CLAY_CORNER_RADIUS(8)
     }) {
-        if ((props.is_past || props.is_today) && props.on_click != NULL) {
-            Clay_OnHover(props.on_click, props.unique_index);
+        if ((unique_props->is_past || unique_props->is_today) && 
+            unique_props->on_click != NULL) {
+            Clay_OnHover(unique_props->on_click, (intptr_t)unique_props);
         }
         
-        if (props.day_number >= 0 && props.day_number < sizeof(DAY_STRINGS)/sizeof(DAY_STRINGS[0])) {
-            CLAY_TEXT(DAY_STRINGS[props.day_number], 
+        if (unique_props->day_number >= 0 && 
+            unique_props->day_number < sizeof(DAY_STRINGS)/sizeof(DAY_STRINGS[0])) {
+            CLAY_TEXT(DAY_STRINGS[unique_props->day_number], 
                 CLAY_TEXT_CONFIG({ 
                     .fontSize = fontSize,
                     .fontId = FONT_ID_BODY_16,

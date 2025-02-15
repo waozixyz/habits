@@ -130,20 +130,26 @@ void HandleTabInteraction(Clay_ElementId elementId, Clay_PointerData pointerInfo
         SaveHabits(&habits);
     }
 }
-
-void HandleDateChange(time_t new_date) {
-    Habit* active_habit = GetActiveHabit(&habits);
-    if (active_habit) {
-        active_habit->start_date = new_date;
-        SaveHabits(&habits);
-    }
-}
-
 void ToggleHabitStateForDay(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
     if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        uint32_t day_index = (uint32_t)userData;
-        ToggleHabitDay(&habits, day_index);
-        SaveHabits(&habits);
+        // Cast back to CalendarBoxProps pointer
+        CalendarBoxProps* unique_props = (CalendarBoxProps*)userData;
+
+        if (unique_props) {
+            printf("Toggling habit state for date: %ld\n", (long)unique_props->date);
+
+            if (unique_props->date == 0) {
+                printf("Error: Invalid date\n");
+                free(unique_props);
+                return;
+            }
+
+            ToggleHabitDay(&habits, unique_props->date);
+            SaveHabits(&habits);
+
+            // Free the dynamically allocated props
+            free(unique_props);
+        }
     }
 }
 
@@ -183,6 +189,7 @@ void RenderHabitTab(const Habit* habit) {
         }));
     }
 }
+
 void RenderHabitHeader() {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -203,136 +210,50 @@ void RenderHabitHeader() {
                 .y = CLAY_ALIGN_Y_CENTER 
             },
             .sizing = {
-                .width = CLAY_SIZING_GROW(),
+                .width = CLAY_SIZING_FIT(0),
                 .height = CLAY_SIZING_FIT(0)
             }
         },
         .backgroundColor = base_theme.background
     }) {
+        CLAY({
+            .id = CLAY_ID("ColorPickerContainer"),
+            .layout = {
+                .childGap = 0,
+                .layoutDirection = CLAY_LEFT_TO_RIGHT,
+                .padding = { 8, 8, 0, 0 },
+                .childAlignment = { 
+                    .x = CLAY_ALIGN_X_CENTER,
+                    .y = CLAY_ALIGN_Y_CENTER 
+                }
+            }
+        }) {
+            RenderColorPicker(active_habit->color, HandleColorChange);
+            if (IsDeleteModalOpen()) {
+                RenderDeleteHabitModal();
+            }
+        }
         if (isEditing) {
             CLAY({
                 .layout = {
                     .sizing = {
-                        .width = CLAY_SIZING_GROW(),
+                        .width = CLAY_SIZING_FIXED(200),
                         .height = CLAY_SIZING_FIT(0)
-                    },
-                    .childGap = 8,
-                    .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                    .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
+                    }
                 }
             }) {
-                CLAY({
-                    .layout = {
-                        .sizing = {
-                            .width = CLAY_SIZING_FIXED(200),
-                            .height = CLAY_SIZING_FIT(0)
-                        }
-                    }
-                }) {
-                    Rocks_RenderTextInput(habits.habit_name_input, active_habit->id);
-                }
-
-                CLAY({
-                    .layout = {
-                        .childGap = 8,
-                        .layoutDirection = CLAY_LEFT_TO_RIGHT
-                    }
-                }) {
-                    // Delete button
-                    CLAY({
-                        .id = CLAY_ID("DeleteButton"),
-                        .layout = {
-                            .sizing = {
-                                .width = CLAY_SIZING_FIXED(32),
-                                .height = CLAY_SIZING_FIXED(32)
-                            },
-                            .childAlignment = {
-                                .x = CLAY_ALIGN_X_CENTER,
-                                .y = CLAY_ALIGN_Y_CENTER
-                            }
-                        },
-                        .backgroundColor = Clay_Hovered() ? theme->danger : base_theme.background,
-                        .cornerRadius = CLAY_CORNER_RADIUS(4)
-                    }) {
-                        Clay_OnHover(HandleDeleteButtonClick, active_habit->id);
-                        
-                        CLAY({
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_FIXED(24),
-                                    .height = CLAY_SIZING_FIXED(24)
-                                }
-                            },
-                            .image = {
-                                .sourceDimensions = HABIT_ICONS[2].dimensions,
-                                .imageData = habit_icon_images[2]
-                            }
-                        }) {}
-                    }
-
-                    // Confirm button
-                    CLAY({
-                        .id = CLAY_ID("ConfirmButton"),
-                        .layout = {
-                            .sizing = {
-                                .width = CLAY_SIZING_FIXED(32),
-                                .height = CLAY_SIZING_FIXED(32)
-                            },
-                            .childAlignment = {
-                                .x = CLAY_ALIGN_X_CENTER,
-                                .y = CLAY_ALIGN_Y_CENTER
-                            }
-                        },
-                        .backgroundColor = Clay_Hovered() ? theme->success : base_theme.secondary,
-                        .cornerRadius = CLAY_CORNER_RADIUS(4)
-                    }) {
-                        Clay_OnHover(HandleConfirmButtonClick, 0);
-                        
-                        CLAY({
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_FIXED(24),
-                                    .height = CLAY_SIZING_FIXED(24)
-                                }
-                            },
-                            .image = {
-                                .sourceDimensions = HABIT_ICONS[0].dimensions,
-                                .imageData = habit_icon_images[0]
-                            }
-                        }) {}
-                    }
-                }
+                Rocks_RenderTextInput(habits.habit_name_input, active_habit->id);
             }
-        } else {
-            // Title and edit button side by side
+
             CLAY({
                 .layout = {
-                    .sizing = {
-                        .width = CLAY_SIZING_GROW(),
-                        .height = CLAY_SIZING_FIT(0)
-                    },
                     .childGap = 8,
-                    .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                    .childAlignment = { 
-                        .x = CLAY_ALIGN_X_CENTER,
-                        .y = CLAY_ALIGN_Y_CENTER
-                    }
+                    .layoutDirection = CLAY_LEFT_TO_RIGHT
                 }
             }) {
-                // Title
-                Clay_String active_name = {
-                    .length = strlen(active_habit->name),
-                    .chars = active_habit->name
-                };
-                CLAY_TEXT(active_name, CLAY_TEXT_CONFIG({
-                    .fontSize = 24,
-                    .fontId = FONT_ID_BODY_24,
-                    .textColor = base_theme.text
-                }));
-
-                // Edit button
+                // Delete button
                 CLAY({
-                    .id = CLAY_ID("EditButton"),
+                    .id = CLAY_ID("DeleteButton"),
                     .layout = {
                         .sizing = {
                             .width = CLAY_SIZING_FIXED(32),
@@ -343,10 +264,10 @@ void RenderHabitHeader() {
                             .y = CLAY_ALIGN_Y_CENTER
                         }
                     },
-                    .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                    .backgroundColor = Clay_Hovered() ? theme->danger : base_theme.background,
                     .cornerRadius = CLAY_CORNER_RADIUS(4)
                 }) {
-                    Clay_OnHover(HandleEditButtonClick, 0);
+                    Clay_OnHover(HandleDeleteButtonClick, active_habit->id);
                     
                     CLAY({
                         .layout = {
@@ -356,13 +277,90 @@ void RenderHabitHeader() {
                             }
                         },
                         .image = {
-                            .sourceDimensions = HABIT_ICONS[1].dimensions,
-                            .imageData = habit_icon_images[1]
+                            .sourceDimensions = HABIT_ICONS[2].dimensions,
+                            .imageData = habit_icon_images[2]
+                        }
+                    }) {}
+                }
+
+                // Confirm button
+                CLAY({
+                    .id = CLAY_ID("ConfirmButton"),
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_FIXED(32),
+                            .height = CLAY_SIZING_FIXED(32)
+                        },
+                        .childAlignment = {
+                            .x = CLAY_ALIGN_X_CENTER,
+                            .y = CLAY_ALIGN_Y_CENTER
+                        }
+                    },
+                    .backgroundColor = Clay_Hovered() ? theme->success : base_theme.secondary,
+                    .cornerRadius = CLAY_CORNER_RADIUS(4)
+                }) {
+                    Clay_OnHover(HandleConfirmButtonClick, 0);
+                    
+                    CLAY({
+                        .layout = {
+                            .sizing = {
+                                .width = CLAY_SIZING_FIXED(24),
+                                .height = CLAY_SIZING_FIXED(24)
+                            }
+                        },
+                        .image = {
+                            .sourceDimensions = HABIT_ICONS[0].dimensions,
+                            .imageData = habit_icon_images[0]
                         }
                     }) {}
                 }
             }
-        }
+            
+        } else {
+            
+            Clay_String active_name = {
+                .length = strlen(active_habit->name),
+                .chars = active_habit->name
+            };
+            CLAY_TEXT(active_name, CLAY_TEXT_CONFIG({
+                .fontSize = 24,
+                .fontId = FONT_ID_BODY_24,
+                .textColor = base_theme.text
+            }));
+
+            // Edit button
+            CLAY({
+                .id = CLAY_ID("EditButton"),
+                .layout = {
+                    .sizing = {
+                        .width = CLAY_SIZING_FIXED(32),
+                        .height = CLAY_SIZING_FIXED(32)
+                    },
+                    .childAlignment = {
+                        .x = CLAY_ALIGN_X_CENTER,
+                        .y = CLAY_ALIGN_Y_CENTER
+                    }
+                },
+                .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                .cornerRadius = CLAY_CORNER_RADIUS(4)
+            }) {
+                Clay_OnHover(HandleEditButtonClick, 0);
+                
+                CLAY({
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_FIXED(24),
+                            .height = CLAY_SIZING_FIXED(24)
+                        }
+                    },
+                    .image = {
+                        .sourceDimensions = HABIT_ICONS[1].dimensions,
+                        .imageData = habit_icon_images[1]
+                    }
+                }) {}
+            }
+        }   
+    
     }
 }
 void RenderHabitTabBar() {
@@ -458,6 +456,7 @@ void CleanupHabitsPage(Rocks* rocks) {
     memset(&habits, 0, sizeof(habits));
 }
 
+
 void RenderHabitsPage(float dt) {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -503,28 +502,6 @@ void RenderHabitsPage(float dt) {
     }) {
         RenderHabitTabBar();
         RenderHabitHeader();
-
-        CLAY({
-            .id = CLAY_ID("ColorPickerContainer"),
-            .layout = {
-                .sizing = { 
-                    .width = windowWidth > BREAKPOINT_MEDIUM + 40 ? CLAY_SIZING_FIXED(BREAKPOINT_MEDIUM + 40) : CLAY_SIZING_GROW(),
-                    .height = CLAY_SIZING_FIT(0) 
-                },
-                .childGap = 0,
-                .layoutDirection = CLAY_LEFT_TO_RIGHT,
-                .padding = { 8, 8, 0, 0 },
-                .childAlignment = { 
-                    .x = CLAY_ALIGN_X_CENTER,
-                    .y = CLAY_ALIGN_Y_CENTER 
-                }
-            }
-        }) {
-            RenderColorPicker(active_habit->color, HandleColorChange);
-            if (IsDeleteModalOpen()) {
-                RenderDeleteHabitModal();
-            }
-        }
 
         // Day labels
         CLAY({
@@ -600,7 +577,6 @@ void RenderHabitsPage(float dt) {
                 int total_weeks = (total_days + 6) / 7;
 
                 struct tm current = start_date;
-                int unique_index = 0;
 
                 for (int row = 0; row < total_weeks; row++) {
                     CLAY({
@@ -615,29 +591,29 @@ void RenderHabitsPage(float dt) {
                             .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
                         }
                     }) {
-                        for (int col = 0; col < 7; col++) {
-                            time_t current_timestamp = mktime(&current);
-                            bool is_today = (current_timestamp == today_timestamp);
-                            bool is_past = (current_timestamp < today_timestamp);
+                
+                            for (int col = 0; col < 7; col++) {
+                                
+                                time_t current_timestamp = mktime(&current);
+                                bool is_today = (current_timestamp == today_timestamp);
+                                bool is_past = (current_timestamp < today_timestamp);
 
-                            bool is_completed = IsHabitCompletedForDate(active_habit, current_timestamp);
+                                bool is_completed = IsHabitCompletedForDate(active_habit, current_timestamp);
 
-                            CalendarBoxProps props = {
-                                .day_number = current.tm_mday,
-                                .is_today = is_today,
-                                .is_past = is_past,
-                                .unique_index = unique_index,
-                                .is_completed = is_completed,
-                                .on_click = ToggleHabitStateForDay,
-                                .custom_color = active_habit->color
-                            };
+                                  CalendarBoxProps props = {
+                                    .day_number = current.tm_mday,
+                                    .is_today = is_today,
+                                    .is_past = is_past,
+                                    .is_completed = is_completed,
+                                    .on_click = ToggleHabitStateForDay,
+                                    .custom_color = active_habit->color,
+                                    .date = current_timestamp
+                                };
+                                RenderCalendarBox(props);
 
-                            RenderCalendarBox(props);
-
-                            current.tm_mday++;
-                            unique_index++;
-                            mktime(&current);
-                        }
+                                current.tm_mday++;
+                                mktime(&current);
+                            }
                     }
                 }
             }

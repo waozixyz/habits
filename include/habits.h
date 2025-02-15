@@ -33,6 +33,7 @@ void CleanupHabitsPage(Rocks* rocks);
 // Event handling
 void HandleHabitsPageInput(InputEvent event);
 void ToggleHabitStateForDay(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
+void HandleViewMorePast(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
 
 // Main page render function
 void RenderHabitsPage(float dt);

@@ -20,7 +20,6 @@ EM_JS(void, addNewHabitFunction, (HabitCollection* collection), {});
 #include "cJSON.h"
 #include <stdlib.h>
 #include <time.h>
-
 static cJSON* HabitToJSON(const Habit* habit, const HabitCollection* collection) {
    cJSON* habitObj = cJSON_CreateObject();
    cJSON_AddNumberToObject(habitObj, "id", habit->id);
@@ -33,28 +32,75 @@ static cJSON* HabitToJSON(const Habit* habit, const HabitCollection* collection)
    cJSON_AddNumberToObject(color, "a", habit->color.a);
    cJSON_AddItemToObject(habitObj, "color", color);
 
-   cJSON_AddNumberToObject(habitObj, "start_date", (double)habit->start_date);  
-
    cJSON* days = cJSON_CreateArray();
    for (size_t i = 0; i < habit->days_count; i++) {
        cJSON* day = cJSON_CreateObject();
        cJSON_AddNumberToObject(day, "date", habit->calendar_days[i].date);
-       cJSON_AddNumberToObject(day, "day_index", habit->calendar_days[i].day_index);
        cJSON_AddBoolToObject(day, "completed", habit->calendar_days[i].completed);
        cJSON_AddItemToArray(days, day);
    }
    cJSON_AddItemToObject(habitObj, "calendar_days", days);
 
-    cJSON* collapsed = cJSON_CreateArray();
-    for (size_t i = 0; i < collection->collapsed_rows_count; i++) {
-        cJSON* row = cJSON_CreateObject();
-        cJSON_AddNumberToObject(row, "index", collection->collapsed_rows[i].row_index);
-        cJSON_AddItemToArray(collapsed, row);
-    }
-    cJSON_AddItemToObject(habitObj, "collapsed_rows", collapsed);
-
-    return habitObj;
+   return habitObj;
 }
+static void LoadHabitFromJSON(Habit* habit, cJSON* habitObj, HabitCollection* collection) {
+   cJSON* id = cJSON_GetObjectItem(habitObj, "id");
+   cJSON* name = cJSON_GetObjectItem(habitObj, "name");
+   cJSON* color = cJSON_GetObjectItem(habitObj, "color");
+   cJSON* days = cJSON_GetObjectItem(habitObj, "calendar_days");
+
+   // Safe loading of required fields
+   if (id && cJSON_IsNumber(id)) {
+       habit->id = id->valueint;
+   } else {
+       habit->id = 0;
+   }
+
+   if (name && cJSON_IsString(name)) {
+       strncpy(habit->name, name->valuestring, MAX_HABIT_NAME - 1);
+       habit->name[MAX_HABIT_NAME - 1] = '\0';
+   } else {
+       strncpy(habit->name, "Unnamed Habit", MAX_HABIT_NAME - 1);
+   }
+
+   // Load color if it exists and is valid
+   Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
+   if (color && cJSON_IsObject(color)) {
+       cJSON* r = cJSON_GetObjectItem(color, "r");
+       cJSON* g = cJSON_GetObjectItem(color, "g");
+       cJSON* b = cJSON_GetObjectItem(color, "b");
+       cJSON* a = cJSON_GetObjectItem(color, "a");
+
+       if (r && g && b && a) {
+           habit->color.r = (float)cJSON_GetNumberValue(r);
+           habit->color.g = (float)cJSON_GetNumberValue(g);
+           habit->color.b = (float)cJSON_GetNumberValue(b);
+           habit->color.a = (float)cJSON_GetNumberValue(a);
+       } else {
+           habit->color = base_theme.primary;
+       }
+   } else {
+       habit->color = base_theme.primary;
+   }
+
+   // Load calendar days
+   habit->days_count = 0;
+   if (days && cJSON_IsArray(days)) {
+       cJSON* day;
+       cJSON_ArrayForEach(day, days) {
+           if (habit->days_count >= MAX_CALENDAR_DAYS) break;
+           cJSON* date = cJSON_GetObjectItem(day, "date");
+           cJSON* completed = cJSON_GetObjectItem(day, "completed");
+
+           if (date && completed) {
+               HabitDay* habitDay = &habit->calendar_days[habit->days_count++];
+               habitDay->date = (time_t)cJSON_GetNumberValue(date);
+               habitDay->completed = cJSON_IsTrue(completed);
+           }
+       }
+   }
+}
+
 static void SaveHabitsJSON(const HabitCollection* collection) {
    if (!collection) return;
 
@@ -77,50 +123,58 @@ static void SaveHabitsJSON(const HabitCollection* collection) {
    free(jsonStr);
    cJSON_Delete(root);
 }
-static void LoadHabitFromJSON(Habit* habit, cJSON* habitObj, HabitCollection* collection) {
-   habit->id = cJSON_GetObjectItem(habitObj, "id")->valueint;
-   strncpy(habit->name, cJSON_GetObjectItem(habitObj, "name")->valuestring, MAX_HABIT_NAME - 1);
-   
-   cJSON* color = cJSON_GetObjectItem(habitObj, "color");
-   habit->color.r = cJSON_GetObjectItem(color, "r")->valuedouble;
-   habit->color.g = cJSON_GetObjectItem(color, "g")->valuedouble;
-   habit->color.b = cJSON_GetObjectItem(color, "b")->valuedouble;
-   habit->color.a = cJSON_GetObjectItem(color, "a")->valuedouble;
 
-   // Load start_date if it exists, otherwise set to current time
-   cJSON* start_date = cJSON_GetObjectItem(habitObj, "start_date");
-   if (start_date) {
-       habit->start_date = (time_t)start_date->valuedouble;
-   } else {
-       habit->start_date = time(NULL);
+bool ToggleHabitDay(HabitCollection* collection, time_t date) {
+   if (!collection) return false;
+   
+   #ifndef __EMSCRIPTEN__
+   // Add debounce check using Rocks_GetTime
+   float currentTime = Rocks_GetTime(GRocks);
+   if (currentTime - lastCalendarToggleTime < CALENDAR_TOGGLE_DEBOUNCE_MS) {
+       printf("Calendar toggle ignored - too soon (delta: %f s)", 
+               currentTime - lastCalendarToggleTime);
+       return false;
    }
-    
-    
-   cJSON* days = cJSON_GetObjectItem(habitObj, "calendar_days");
-   habit->days_count = 0;
-   cJSON* day;
-   cJSON_ArrayForEach(day, days) {
-       if (habit->days_count >= MAX_CALENDAR_DAYS) break;
-       
-       HabitDay* habitDay = &habit->calendar_days[habit->days_count++];
-       habitDay->date = cJSON_GetObjectItem(day, "date")->valueint;
-       habitDay->day_index = cJSON_GetObjectItem(day, "day_index")->valueint;
-       habitDay->completed = cJSON_IsTrue(cJSON_GetObjectItem(day, "completed"));
-    }
-    
-    cJSON* collapsed = cJSON_GetObjectItem(habitObj, "collapsed_rows");
-    collection->collapsed_rows_count = 0;
-    if (collapsed) {
-        cJSON* row;
-        cJSON_ArrayForEach(row, collapsed) {
-            if (collection->collapsed_rows_count >= MAX_CALENDAR_DAYS) break;
-            collection->collapsed_rows[collection->collapsed_rows_count].row_index = 
-                cJSON_GetObjectItem(row, "index")->valueint;
-            collection->collapsed_rows[collection->collapsed_rows_count].is_collapsed = true;
-            collection->collapsed_rows_count++;
-        }
-    }
+   lastCalendarToggleTime = currentTime;
+   #endif
+   
+   Habit* habit = GetActiveHabit(collection);
+   if (!habit) return false;
+   
+   // Look for an existing entry for this specific date
+   for (size_t i = 0; i < habit->days_count; i++) {
+       // Normalize both dates to midnight
+       struct tm input_tm = *localtime(&date);
+       input_tm.tm_hour = 0;
+       input_tm.tm_min = 0;
+       input_tm.tm_sec = 0;
+       time_t normalized_input_date = mktime(&input_tm);
+
+       struct tm stored_tm = *localtime(&habit->calendar_days[i].date);
+       stored_tm.tm_hour = 0;
+       stored_tm.tm_min = 0;
+       stored_tm.tm_sec = 0;
+       time_t normalized_stored_date = mktime(&stored_tm);
+
+       // If we find a match, toggle its completion
+       if (normalized_stored_date == normalized_input_date) {
+           habit->calendar_days[i].completed = !habit->calendar_days[i].completed;
+           habit->calendar_days[i].date = date;  // Update with the exact input date
+           return true;
+       }
+   }
+
+   // If no existing entry is found and we have space, add a new one
+   if (habit->days_count >= MAX_CALENDAR_DAYS) return false;
+   
+   HabitDay* new_day = &habit->calendar_days[habit->days_count++];
+   new_day->completed = true;
+   new_day->date = date;  // Use the exact input date
+   return true;
 }
+
+
+
 static void CreateDefaultHabitsJSON(HabitCollection* defaultCollection) {
    Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
 
@@ -130,22 +184,12 @@ static void CreateDefaultHabitsJSON(HabitCollection* defaultCollection) {
    default_habit->color = base_theme.primary;
    default_habit->days_count = 0;
 
-   // Set the start date to the most recent past Monday
-   time_t now = time(NULL);
-   struct tm *local_time = localtime(&now);
-   struct tm start_date = *local_time;
-   start_date.tm_hour = 0;
-   start_date.tm_min = 0;
-   start_date.tm_sec = 0;
-   int days_to_monday = start_date.tm_wday == 0 ? 6 : start_date.tm_wday - 1;
-   start_date.tm_mday -= days_to_monday;
-   default_habit->start_date = mktime(&start_date);
-
    defaultCollection->habits_count = 1;
    defaultCollection->active_habit_id = 0;
 
    SaveHabitsJSON(defaultCollection);
 }
+
 
 static void LoadHabitsJSON(HabitCollection* collection) {
    StorageConfig storage_config;
@@ -244,9 +288,6 @@ void AddNewHabit(HabitCollection* collection) {
        new_habit->id = collection->habits_count;  // ID matches position
        new_habit->color = base_theme.primary;
        new_habit->days_count = 0;
-
-       // Set the start date to the current time
-       new_habit->start_date = time(NULL);
        
        collection->habits_count++;
        collection->active_habit_id = new_habit->id;
@@ -254,7 +295,6 @@ void AddNewHabit(HabitCollection* collection) {
        SaveHabits(collection);
    #endif
 }
-
 void SaveHabits(HabitCollection* collection) {
    if (!collection) return;
 
@@ -299,77 +339,35 @@ void LoadHabits(HabitCollection* collection) {
 }
 
 bool IsHabitCompletedForDate(const Habit* habit, time_t date) {
-   // Normalize input date to midnight
-   struct tm tmp = *localtime(&date);
-   tmp.tm_hour = 0;
-   tmp.tm_min = 0;
-   tmp.tm_sec = 0;
-   time_t normalized_date = mktime(&tmp);
-   
-   for (size_t i = 0; i < habit->days_count; i++) {
-       // Normalize stored date to midnight
-       struct tm stored = *localtime(&habit->calendar_days[i].date);
-       stored.tm_hour = 0;
-       stored.tm_min = 0;
-       stored.tm_sec = 0;
-       time_t stored_date = mktime(&stored);
-       
-       if (stored_date == normalized_date && habit->calendar_days[i].completed) {
-           return true;
-       }
-   }
-   return false;
-}
-
-bool ToggleHabitDay(HabitCollection* collection, uint32_t day_index) {
-   if (!collection) return false;
-   
-   #ifndef __EMSCRIPTEN__
-   // Add debounce check using Rocks_GetTime
-   float currentTime = Rocks_GetTime(GRocks);
-   if (currentTime - lastCalendarToggleTime < CALENDAR_TOGGLE_DEBOUNCE_MS) {
-       printf("Calendar toggle ignored - too soon (delta: %f s)", 
-               currentTime - lastCalendarToggleTime);
-       return false;
-   }
-   lastCalendarToggleTime = currentTime;
-   #endif
-   
-   Habit* habit = GetActiveHabit(collection);
-   if (!habit) return false;
-   
-   for (size_t i = 0; i < habit->days_count; i++) {
-       if (habit->calendar_days[i].day_index == day_index) {
-           habit->calendar_days[i].completed = !habit->calendar_days[i].completed;
-           habit->calendar_days[i].date = time(NULL);
-           return true;
-       }
-   }
-
-   if (habit->days_count >= MAX_CALENDAR_DAYS) return false;
-   
-   HabitDay* new_day = &habit->calendar_days[habit->days_count++];
-   new_day->day_index = day_index;
-   new_day->completed = true;
-   new_day->date = time(NULL);
-   return true;
-}
-
-void UpdateCalendarStartDate(HabitCollection* collection, time_t new_start_date) {
-   if (!collection) return;
-   
-   Habit* habit = GetActiveHabit(collection);
-   if (habit) {
-       habit->start_date = new_start_date;
-       SaveHabits(collection);
-   }
+    if (!habit) return false;
+    
+    // Normalize input date to midnight
+    struct tm normalized_tm = *localtime(&date);
+    normalized_tm.tm_hour = 0;
+    normalized_tm.tm_min = 0;
+    normalized_tm.tm_sec = 0;
+    time_t normalized_date = mktime(&normalized_tm);
+    
+    for (size_t i = 0; i < habit->days_count; i++) {
+        // Normalize stored date to midnight
+        struct tm stored_tm = *localtime(&habit->calendar_days[i].date);
+        stored_tm.tm_hour = 0;
+        stored_tm.tm_min = 0;
+        stored_tm.tm_sec = 0;
+        time_t stored_normalized_date = mktime(&stored_tm);
+        
+        if (stored_normalized_date == normalized_date && habit->calendar_days[i].completed) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void UpdateHabitColor(HabitCollection* collection, Clay_Color color) {
    if (!collection) return;
    
    Habit* habit = GetActiveHabit(collection);
-   if (habit) {
+   if (habit) { 
        habit->color = color;
        SaveHabits(collection);
    }

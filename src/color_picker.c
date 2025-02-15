@@ -134,8 +134,8 @@ void RenderColorPicker(Clay_Color current_color, void (*on_color_change)(Clay_Co
             .id = CLAY_ID("CurrentColorDisplay"),
             .layout = {
                 .sizing = {
-                    .width = CLAY_SIZING_FIXED(40),
-                    .height = CLAY_SIZING_FIXED(40)
+                    .width = CLAY_SIZING_FIXED(30),
+                    .height = CLAY_SIZING_FIXED(30)
                 }
             },
             .backgroundColor = current_color,

@@ -18,9 +18,7 @@
 
 typedef struct {
     time_t date;      // Unix timestamp
-    uint32_t day_index; // Index in the calendar grid
     bool completed;
-    uint8_t padding[3]; // For alignment
 } HabitDay;
 
 typedef struct {
@@ -28,14 +26,13 @@ typedef struct {
     bool is_collapsed;
 } CollapsedRow;
 
-// A single habit with its calendar data
+
 typedef struct {
     char name[MAX_HABIT_NAME];
     uint32_t id;
     Clay_Color color;
     HabitDay calendar_days[MAX_CALENDAR_DAYS];
     size_t days_count;
-    time_t start_date;
 } Habit;
 
 typedef struct {
@@ -44,14 +41,12 @@ typedef struct {
     uint32_t active_habit_id;
     bool is_editing_new_habit;
     Rocks_TextInput* habit_name_input;
-    CollapsedRow collapsed_rows[MAX_CALENDAR_DAYS];
-    size_t collapsed_rows_count;
 } HabitCollection;
 
 // Public API
 void SaveHabits(HabitCollection* collection);
 void LoadHabits(HabitCollection* collection);
-bool ToggleHabitDay(HabitCollection* collection, uint32_t day_index);
+bool ToggleHabitDay(HabitCollection* collection, time_t date);
 void UpdateHabitColor(HabitCollection* collection, Clay_Color color);
 Habit* GetActiveHabit(HabitCollection* collection);
 void AddNewHabit(HabitCollection* collection);
