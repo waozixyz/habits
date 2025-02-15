@@ -41,6 +41,9 @@ typedef struct {
     uint32_t active_habit_id;
     bool is_editing_new_habit;
     Rocks_TextInput* habit_name_input;
+    bool is_calendar_expanded;
+    int extra_weeks;
+    bool has_done_initial_scroll;  
 } HabitCollection;
 
 // Public API

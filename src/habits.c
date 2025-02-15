@@ -11,13 +11,15 @@ typedef struct {
 static HabitIcon HABIT_ICONS[] = {
     {.url = "images/icons/check.png", .dimensions = {24, 24}},
     {.url = "images/icons/edit.png", .dimensions = {24, 24}},
-    {.url = "images/icons/trash.png", .dimensions = {24, 24}}
+    {.url = "images/icons/trash.png", .dimensions = {24, 24}},
+    {.url = "images/icons/emoji-look-up.png", .dimensions = {24, 24}},
+    {.url = "images/icons/emoji-look-down.png", .dimensions = {24, 24}}
 };
 
-static void* habit_icon_images[3] = {NULL};
+static void* habit_icon_images[5] = {NULL};
 
 void InitializeHabitIcons(Rocks* rocks) {
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 5; i++) {
         if (habit_icon_images[i]) {
             Rocks_UnloadImage(rocks, habit_icon_images[i]);
             habit_icon_images[i] = NULL;
@@ -32,7 +34,7 @@ void InitializeHabitIcons(Rocks* rocks) {
 }
 
 void CleanupHabitIcons(Rocks* rocks) {
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 5; i++) {
         if (habit_icon_images[i]) {
             Rocks_UnloadImage(rocks, habit_icon_images[i]);
             habit_icon_images[i] = NULL;
@@ -393,7 +395,7 @@ void RenderHabitTabBar() {
                 },
                 .layoutDirection = CLAY_LEFT_TO_RIGHT
             },
-            .scroll = { .horizontal = true }
+            .scroll = { .vertical = true }
         }) {
             for (size_t i = 0; i < habits.habits_count; i++) {
                 RenderHabitTab(&habits.habits[i]);
@@ -425,6 +427,7 @@ void RenderHabitTabBar() {
         }
     }
 }
+
 void InitializeHabitsPage(Rocks* rocks) {
     if (!rocks) return;
     printf("Initializing habits page\n");
@@ -457,6 +460,27 @@ void CleanupHabitsPage(Rocks* rocks) {
 }
 
 
+static void HandleCalendarExpand(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        if (!habits.is_calendar_expanded) {
+            habits.is_calendar_expanded = true;
+            habits.extra_weeks = 2;
+        } else {
+            habits.extra_weeks += 2; 
+        }
+        SaveHabits(&habits);
+    }
+}
+
+
+static void HandleCalendarCollapse(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        habits.is_calendar_expanded = false;
+        habits.extra_weeks = 0;
+        SaveHabits(&habits);
+    }
+}
+
 void RenderHabitsPage(float dt) {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -478,9 +502,8 @@ void RenderHabitsPage(float dt) {
     today_midnight.tm_sec = 0;
     time_t today_timestamp = mktime(&today_midnight);
 
-    // Calculate dates for calendar display
     struct tm start_date = today_midnight;
-    start_date.tm_mday -= 14; // Go back 2 weeks
+    start_date.tm_mday -= (14 + (habits.is_calendar_expanded ? habits.extra_weeks * 7 : 0));
     mktime(&start_date);
 
     struct tm end_date = today_midnight;
@@ -547,7 +570,6 @@ void RenderHabitsPage(float dt) {
             }
         }
 
-        // Calendar grid
         CLAY({
             .id = CLAY_ID("CalendarScrollContainer"),
             .layout = {
@@ -577,8 +599,75 @@ void RenderHabitsPage(float dt) {
                 int total_weeks = (total_days + 6) / 7;
 
                 struct tm current = start_date;
+                
 
+                if (habits.is_calendar_expanded) {
+                    CLAY({
+                        .id = CLAY_ID("TopExpandButton"),
+                        .layout = {
+                            .sizing = {
+                                .width = CLAY_SIZING_GROW(),
+                                .height = CLAY_SIZING_GROW()
+                            },
+                            .childAlignment = {
+                                .x = CLAY_ALIGN_X_CENTER,
+                                .y = CLAY_ALIGN_Y_CENTER
+                            }
+                        },
+                        .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                        .cornerRadius = CLAY_CORNER_RADIUS(4)
+                    }) {
+                        Clay_OnHover(HandleCalendarExpand, 0);
+                        CLAY({
+                            .layout = {
+                                .sizing = {
+                                    .width = CLAY_SIZING_FIXED(24),
+                                    .height = CLAY_SIZING_FIXED(24)
+                                }
+                            },
+                            .image = {
+                                .sourceDimensions = HABIT_ICONS[3].dimensions,
+                                .imageData = habit_icon_images[3]
+                            }
+                        }) {}
+                    }
+                }
+                
                 for (int row = 0; row < total_weeks; row++) {
+                    if ((row == 0 && !habits.is_calendar_expanded) || (row == 2 && habits.is_calendar_expanded)) {
+                        Clay_ElementId toggleButtonId = habits.is_calendar_expanded ? 
+                            CLAY_ID("CollapsePastRowsButton") : CLAY_ID("ExpandPastRowsButton");
+                        
+                        CLAY({
+                            .id = toggleButtonId,
+                            .layout = {
+                                .sizing = {
+                                    .width = CLAY_SIZING_GROW(),
+                                    .height = CLAY_SIZING_GROW()
+                                },
+                                .childAlignment = {
+                                    .x = CLAY_ALIGN_X_CENTER,
+                                    .y = CLAY_ALIGN_Y_CENTER
+                                }
+                            },
+                            .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                            .cornerRadius = CLAY_CORNER_RADIUS(4),
+                        }) {
+                            Clay_OnHover(habits.is_calendar_expanded ? HandleCalendarCollapse : HandleCalendarExpand, 0);
+                            CLAY({
+                                .layout = {
+                                    .sizing = {
+                                        .width = CLAY_SIZING_FIXED(24),
+                                        .height = CLAY_SIZING_FIXED(24)
+                                    }
+                                },
+                                .image = {
+                                    .sourceDimensions = HABIT_ICONS[habits.is_calendar_expanded ? 4 : 3].dimensions,
+                                    .imageData = habit_icon_images[habits.is_calendar_expanded ? 4 : 3]
+                                }
+                            }) {}
+                        }
+                    }
                     CLAY({
                         .id = CLAY_IDI("WeekRow", row),
                         .layout = {
@@ -591,32 +680,38 @@ void RenderHabitsPage(float dt) {
                             .childAlignment = { .y = CLAY_ALIGN_Y_CENTER }
                         }
                     }) {
-                
-                            for (int col = 0; col < 7; col++) {
-                                
-                                time_t current_timestamp = mktime(&current);
-                                bool is_today = (current_timestamp == today_timestamp);
-                                bool is_past = (current_timestamp < today_timestamp);
+                        for (int col = 0; col < 7; col++) {
+                            time_t current_timestamp = mktime(&current);
+                            bool is_today = (current_timestamp == today_timestamp);
+                            bool is_past = (current_timestamp < today_timestamp);
+                            bool is_completed = IsHabitCompletedForDate(active_habit, current_timestamp);
 
-                                bool is_completed = IsHabitCompletedForDate(active_habit, current_timestamp);
+                            CalendarBoxProps props = {
+                                .day_number = current.tm_mday,
+                                .is_today = is_today,
+                                .is_past = is_past,
+                                .is_completed = is_completed,
+                                .on_click = ToggleHabitStateForDay,
+                                .custom_color = active_habit->color,
+                                .date = current_timestamp
+                            };
+                            RenderCalendarBox(props);
 
-                                  CalendarBoxProps props = {
-                                    .day_number = current.tm_mday,
-                                    .is_today = is_today,
-                                    .is_past = is_past,
-                                    .is_completed = is_completed,
-                                    .on_click = ToggleHabitStateForDay,
-                                    .custom_color = active_habit->color,
-                                    .date = current_timestamp
-                                };
-                                RenderCalendarBox(props);
-
-                                current.tm_mday++;
-                                mktime(&current);
-                            }
+                            current.tm_mday++;
+                            mktime(&current);
+                        }
                     }
                 }
             }
+        }
+    }
+     // After rendering, check if we need to do initial scroll
+    if (!habits.has_done_initial_scroll) {
+        Clay_ScrollContainerData scroll_data = Clay_GetScrollContainerData(CLAY_ID("CalendarScrollContainer"));
+        if (scroll_data.found && scroll_data.scrollPosition) {
+            scroll_data.scrollPosition->y = -42; // One row height
+            habits.has_done_initial_scroll = true;
+            SaveHabits(&habits);
         }
     }
 }
