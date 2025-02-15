@@ -9,7 +9,6 @@
 #include "config.h"
 #include "calendar_box.h"
 #include "color_picker.h"
-#include "date_picker.h"
 #include "config.h"
 #include "utils.h"
 #include "quest_theme.h"
@@ -37,10 +36,6 @@ void ToggleHabitStateForDay(Clay_ElementId elementId, Clay_PointerData pointerIn
 
 // Main page render function
 void RenderHabitsPage(float dt);
-
-// Add these function declarations:
-void HandleAddMonthRow(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
-void HandleTogglePastWeeks(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData);
 
 // External state
 extern HabitCollection habits;

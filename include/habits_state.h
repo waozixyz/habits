@@ -15,7 +15,6 @@
 #define MAX_HABITS 10
 #define MAX_HABIT_NAME 32
 
-bool show_past_weeks; 
 
 typedef struct {
     time_t date;      // Unix timestamp
@@ -39,7 +38,6 @@ typedef struct {
     time_t start_date;
 } Habit;
 
-// Collection of all habits
 typedef struct {
     Habit habits[MAX_HABITS];
     size_t habits_count;
@@ -48,10 +46,7 @@ typedef struct {
     Rocks_TextInput* habit_name_input;
     CollapsedRow collapsed_rows[MAX_CALENDAR_DAYS];
     size_t collapsed_rows_count;
-    int weeks_to_display;
-    bool show_past_weeks;
 } HabitCollection;
-
 
 // Public API
 void SaveHabits(HabitCollection* collection);
