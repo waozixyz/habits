@@ -9,11 +9,11 @@ typedef struct {
 } HabitIcon;
 
 static HabitIcon HABIT_ICONS[] = {
-    {.url = "images/icons/check.png", .dimensions = {24, 24}},
-    {.url = "images/icons/edit.png", .dimensions = {24, 24}},
-    {.url = "images/icons/trash.png", .dimensions = {24, 24}},
-    {.url = "images/icons/emoji-look-up.png", .dimensions = {24, 24}},
-    {.url = "images/icons/emoji-look-down.png", .dimensions = {24, 24}}
+    {.url = "images/icons/check.svg", .dimensions = {24, 24}},
+    {.url = "images/icons/edit.svg", .dimensions = {24, 24}},
+    {.url = "images/icons/trash.svg", .dimensions = {24, 24}},
+    {.url = "images/icons/emoji-look-up.svg", .dimensions = {24, 24}},
+    {.url = "images/icons/emoji-look-down.svg", .dimensions = {24, 24}}
 };
 
 static void* habit_icon_images[5] = {NULL};

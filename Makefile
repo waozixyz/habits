@@ -12,6 +12,8 @@ ROCKS_DIR = ../rocks
 ASSETS_DIR = assets
 CLAY_DIR = ../rocks/clay
 CJSON_DIR = lib/cJSON
+VENDOR_DIR = ../rocks/vendor
+NANOSVG_DIR = $(VENDOR_DIR)/nanosvg/src
 
 # Flags
 CFLAGS = -Wall -Werror -O2 \
@@ -26,6 +28,7 @@ INCLUDE_FLAGS = -I./include \
                 -I$(ROCKS_DIR)/include/renderer \
                 -I$(ROCKS_DIR)/include/components \
                 -I$(CLAY_DIR) \
+                -I$(NANOSVG_DIR) \
                 -I$(CJSON_DIR)
 
 # Get Raylib flags
