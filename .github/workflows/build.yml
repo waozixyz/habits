@@ -16,10 +16,12 @@ jobs:
           
       - name: Install Dependencies
         run: |
+          sudo add-apt-repository ppa:appimagelauncher-team/stable
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             ccache \
+            appimagetool \
             pkg-config \
             libgl1-mesa-dev \
             libx11-dev \
@@ -97,3 +99,4 @@ jobs:
           files: |
             artifacts/habits-linux-x86_64.tar.gz
             artifacts/Habits-x86_64.AppImage
+            
