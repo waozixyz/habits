@@ -65,6 +65,22 @@ jobs:
           cd artifacts
           tar czf habits-linux-x86_64.tar.gz habits-linux-x86_64/
 
+      - name: Create AppImage
+        run: |
+          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          cp build/habits AppDir/usr/bin/
+          cp -r build/assets AppDir/usr/share/
+          cp packaging/linux/habits.desktop AppDir/usr/share/applications/
+          cp packaging/linux/habits.png AppDir/usr/share/icons/hicolor/256x256/apps/
+          
+          ./appimagetool AppDir artifacts/Habits-x86_64.AppImage
+
       - name: Generate date
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
@@ -78,5 +94,6 @@ jobs:
           name: Build ${{ steps.date.outputs.date }}
           draft: false
           prerelease: true
-          files: artifacts/habits-linux-x86_64.tar.gz
-          
+          files: |
+            artifacts/habits-linux-x86_64.tar.gz
+            artifacts/Habits-x86_64.AppImage

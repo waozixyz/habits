@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Habits
+Comment=Simple habit tracking tool
+Exec=habits
+Icon=habits
+Terminal=false
+Type=Application
+Categories=Utility;
