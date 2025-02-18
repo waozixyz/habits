@@ -8,11 +8,11 @@ RM = rm -rf
 # Directories
 BUILD_DIR = build
 SRC_DIR = src
-ROCKS_DIR = ../rocks
+ROCKS_DIR = lib/rocks
 ASSETS_DIR = assets
-CLAY_DIR = ../rocks/clay
+CLAY_DIR = lib/rocks/clay
 CJSON_DIR = lib/cJSON
-VENDOR_DIR = ../rocks/vendor
+VENDOR_DIR = lib/rocks/vendor
 NANOSVG_DIR = $(VENDOR_DIR)/nanosvg/src
 
 # Flags
@@ -26,7 +26,7 @@ CFLAGS = -Wall -Werror -O2 \
 INCLUDE_FLAGS = -I./include \
                 -I$(ROCKS_DIR)/include \
                 -I$(ROCKS_DIR)/include/renderer \
-                -I$(ROCKS_DIR)/include/components \
+                -I$(ROCKS_DIR)/ineclude/components \
                 -I$(CLAY_DIR) \
                 -I$(NANOSVG_DIR) \
                 -I$(CJSON_DIR)
