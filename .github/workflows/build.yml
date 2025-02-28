@@ -70,6 +70,10 @@ jobs:
           wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
           
+          # Install FUSE
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+          
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
@@ -79,7 +83,9 @@ jobs:
           cp packaging/linux/habits.desktop AppDir/usr/share/applications/
           cp packaging/linux/habits.png AppDir/usr/share/icons/hicolor/256x256/apps/
           
-          ./appimagetool AppDir artifacts/Habits-x86_64.AppImage
+          # Use the extract option to avoid FUSE issues
+          ./appimagetool --appimage-extract
+          ARCH=x86_64 ./squashfs-root/AppRun AppDir artifacts/Habits-x86_64.AppImage
 
       - name: Generate date
         id: date
