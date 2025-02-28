@@ -61,9 +61,17 @@ jobs:
           make
           mkdir -p artifacts/habits-linux-x86_64
           cp build/habits artifacts/habits-linux-x86_64/
-          cp -r build/assets artifacts/habits-linux-x86_64/
+          
+          # Create assets directory and copy images and fonts
+          mkdir -p artifacts/habits-linux-x86_64/assets
+          mkdir -p artifacts/habits-linux-x86_64/assets/images
+          mkdir -p artifacts/habits-linux-x86_64/assets/fonts
+          cp -r images/* artifacts/habits-linux-x86_64/assets/images/
+          cp -r fonts/* artifacts/habits-linux-x86_64/assets/fonts/
+          
           cd artifacts
           tar czf habits-linux-x86_64.tar.gz habits-linux-x86_64/
+
       - name: Create AppImage
         run: |
           wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
@@ -76,9 +84,27 @@ jobs:
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/habits/assets/images
+          mkdir -p AppDir/usr/share/habits/assets/fonts
           
+          # Copy executable
           cp build/habits AppDir/usr/bin/
-          cp -r build/assets AppDir/usr/share/
+          
+          # Copy assets
+          cp -r images/* AppDir/usr/share/habits/assets/images/
+          cp -r fonts/* AppDir/usr/share/habits/assets/fonts/
+          
+          # Create AppRun file
+          cat > AppDir/AppRun << 'EOF'
+#!/bin/bash
+SELF=$(readlink -f "$0")
+HERE=${SELF%/*}
+export PATH="${HERE}/usr/bin/:${PATH}"
+export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"
+cd "${HERE}/usr/share/habits"
+exec "${HERE}/usr/bin/habits" "$@"
+EOF
+          chmod +x AppDir/AppRun
           
           # Copy desktop file
           cp packaging/linux/habits.desktop AppDir/
