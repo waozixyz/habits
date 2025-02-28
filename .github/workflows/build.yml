@@ -95,15 +95,13 @@ jobs:
           cp -r fonts/* AppDir/usr/share/habits/assets/fonts/
           
           # Create AppRun file
-          cat > AppDir/AppRun << 'EOF'
-#!/bin/bash
-SELF=$(readlink -f "$0")
-HERE=${SELF%/*}
-export PATH="${HERE}/usr/bin/:${PATH}"
-export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"
-cd "${HERE}/usr/share/habits"
-exec "${HERE}/usr/bin/habits" "$@"
-EOF
+          echo '#!/bin/bash' > AppDir/AppRun
+          echo 'SELF=$(readlink -f "$0")' >> AppDir/AppRun
+          echo 'HERE=${SELF%/*}' >> AppDir/AppRun
+          echo 'export PATH="${HERE}/usr/bin/:${PATH}"' >> AppDir/AppRun
+          echo 'export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"' >> AppDir/AppRun
+          echo 'cd "${HERE}/usr/share/habits"' >> AppDir/AppRun
+          echo 'exec "${HERE}/usr/bin/habits" "$@"' >> AppDir/AppRun
           chmod +x AppDir/AppRun
           
           # Copy desktop file
