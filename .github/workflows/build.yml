@@ -80,16 +80,18 @@ jobs:
           cp build/habits AppDir/usr/bin/
           cp -r build/assets AppDir/usr/share/
           
-          # Copy desktop file to both locations
+          # Copy desktop file
+          cp packaging/linux/habits.desktop AppDir/
           cp packaging/linux/habits.desktop AppDir/usr/share/applications/
-          cp packaging/linux/habits.desktop AppDir/  # Add this line - desktop file in root
           
+          # Copy icon files - important: copy directly to root with exact name from desktop file
+          cp packaging/linux/habits.png AppDir/habits.png
           cp packaging/linux/habits.png AppDir/usr/share/icons/hicolor/256x256/apps/
-          cp packaging/linux/habits.png AppDir/.DirIcon  # Add this line - icon in root
           
           # Use the extract option to avoid FUSE issues
           ./appimagetool --appimage-extract
           ARCH=x86_64 ./squashfs-root/AppRun AppDir artifacts/Habits-x86_64.AppImage
+   
       - name: Generate date
         id: date
         run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
