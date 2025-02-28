@@ -29,15 +29,8 @@ jobs:
             libxcursor-dev \
             libsodium-dev
 
-      - name: Cache raylib
-        id: cache-raylib
-        uses: actions/cache@v3
-        with:
-          path: raylib-build
-          key: ${{ runner.os }}-raylib-5.0
-
+      # Build raylib directly without trying to use cached version
       - name: Build raylib
-        if: steps.cache-raylib.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch '5.0' https://github.com/raysan5/raylib.git
           cd raylib
@@ -46,15 +39,6 @@ jobs:
           make
           sudo make install
           cd ../..
-          mkdir -p raylib-build
-          cp -r raylib/build/* raylib-build/
-
-      - name: Install cached raylib
-        if: steps.cache-raylib.outputs.cache-hit == 'true'
-        run: |
-          cd raylib-build
-          sudo make install
-          cd ..
 
       - name: Build Project
         run: |
