@@ -60,7 +60,6 @@ static void RenderColorRow(size_t start_index, size_t end_index) {
         }
     }
 }
-
 static void RenderColorPaletteContent(void) {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -97,7 +96,9 @@ static void RenderColorPaletteContent(void) {
         }) {
             RenderColorRow(0, COLORS_PER_ROW);
             RenderColorRow(COLORS_PER_ROW, COLORS_PER_ROW * 2);
-            RenderColorRow(COLORS_PER_ROW * 2, COLOR_PALETTE_SIZE);
+            RenderColorRow(COLORS_PER_ROW * 2, COLORS_PER_ROW * 3);
+            RenderColorRow(COLORS_PER_ROW * 3, COLORS_PER_ROW * 4);
+            RenderColorRow(COLORS_PER_ROW * 4, COLOR_PALETTE_SIZE);
         }
     }
 }

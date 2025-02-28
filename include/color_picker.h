@@ -19,7 +19,16 @@ static const Clay_Color COLOR_PALETTE[] = {
     {46.0f, 139.0f, 87.0f, 255.0f},    // Sea Green
     {255.0f, 20.0f, 147.0f, 255.0f},   // Deep Pink
     {160.0f, 82.0f, 45.0f, 255.0f},    // Sienna
-    {0.0f, 191.0f, 255.0f, 255.0f}     // Deep Sky Blue
+    {0.0f, 191.0f, 255.0f, 255.0f},    // Deep Sky Blue
+    // New colors
+    {0.0f, 128.0f, 128.0f, 255.0f},    // Teal
+    {255.0f, 127.0f, 80.0f, 255.0f},   // Coral
+    {112.0f, 128.0f, 144.0f, 255.0f},  // Slate Gray
+    {34.0f, 139.0f, 34.0f, 255.0f},    // Forest Green
+    {128.0f, 0.0f, 128.0f, 255.0f},    // Purple
+    {218.0f, 165.0f, 32.0f, 255.0f},   // Goldenrod
+    {220.0f, 20.0f, 60.0f, 255.0f},    // Crimson
+    {95.0f, 158.0f, 160.0f, 255.0f}    // Cadet Blue
 };
 
 #define COLOR_PALETTE_SIZE (sizeof(COLOR_PALETTE) / sizeof(Clay_Color))

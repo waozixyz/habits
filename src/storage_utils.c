@@ -96,8 +96,8 @@ void determine_storage_directory(StorageConfig* config) {
     char full_path[MAX_PATH_LENGTH];
 
     if (home_dir) {
-        // Try Documents/quest first
-        snprintf(full_path, sizeof(full_path), "%s/Documents/quest", home_dir);
+        // Try Documents/habits first
+        snprintf(full_path, sizeof(full_path), "%s/Documents/habits", home_dir);
         
         if (ensure_directory_exists(full_path) == 0) {
             strlcpy(config->root_dir, full_path, MAX_PATH_LENGTH);
@@ -106,15 +106,15 @@ void determine_storage_directory(StorageConfig* config) {
             const char* xdg_data_home = getenv("XDG_DATA_HOME");
             
             if (xdg_data_home) {
-                snprintf(full_path, sizeof(full_path), "%s/quest", xdg_data_home);
+                snprintf(full_path, sizeof(full_path), "%s/habits", xdg_data_home);
             } else {
-                snprintf(full_path, sizeof(full_path), "%s/.local/share/quest", home_dir);
+                snprintf(full_path, sizeof(full_path), "%s/.local/share/habits", home_dir);
             }
 
             if (ensure_directory_exists(full_path) == 0) {
                 strlcpy(config->root_dir, full_path, MAX_PATH_LENGTH);
             } else {
-                printf("Warning: Failed to create quest directory. Falling back to current directory.\n");
+                printf("Warning: Failed to create habits directory. Falling back to current directory.\n");
                 strcpy(config->root_dir, ".");
             }
         }
