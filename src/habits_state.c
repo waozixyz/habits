@@ -102,27 +102,35 @@ static void LoadHabitFromJSON(Habit* habit, cJSON* habitObj, HabitCollection* co
 }
 
 static void SaveHabitsJSON(const HabitCollection* collection) {
-   if (!collection) return;
+    if (!collection) return;
 
-   StorageConfig storage_config;
-   determine_storage_directory(&storage_config);
+    StorageConfig storage_config;
+    determine_storage_directory(&storage_config);
 
-   cJSON* root = cJSON_CreateObject();
-   cJSON_AddNumberToObject(root, "active_habit_id", collection->active_habit_id);
-   
-   cJSON* habits = cJSON_CreateArray();
-   for (size_t i = 0; i < collection->habits_count; i++) {
-       cJSON* habit = HabitToJSON(&collection->habits[i], collection);
-       cJSON_AddItemToArray(habits, habit);
-   }
-   cJSON_AddItemToObject(root, "habits", habits);
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "active_habit_id", collection->active_habit_id);
+    
+    // Keep old fields for backward compatibility
+    cJSON_AddBoolToObject(root, "is_calendar_expanded", collection->is_calendar_expanded);
+    cJSON_AddNumberToObject(root, "extra_weeks", collection->extra_weeks);
+    
+    // Add new calendar offset field
+    cJSON_AddNumberToObject(root, "calendar_offset_weeks", collection->calendar_offset_weeks);
 
-   char* jsonStr = cJSON_Print(root);
-   write_file_contents(storage_config.habits_path, jsonStr, strlen(jsonStr));
+    cJSON* habits = cJSON_CreateArray();
+    for (size_t i = 0; i < collection->habits_count; i++) {
+        cJSON* habit = HabitToJSON(&collection->habits[i], collection);
+        cJSON_AddItemToArray(habits, habit);
+    }
+    cJSON_AddItemToObject(root, "habits", habits);
 
-   free(jsonStr);
-   cJSON_Delete(root);
+    char* jsonStr = cJSON_Print(root);
+    write_file_contents(storage_config.habits_path, jsonStr, strlen(jsonStr));
+
+    free(jsonStr);
+    cJSON_Delete(root);
 }
+
 
 bool ToggleHabitDay(HabitCollection* collection, time_t date) {
    if (!collection) return false;
@@ -186,47 +194,66 @@ static void CreateDefaultHabitsJSON(HabitCollection* defaultCollection) {
 
    defaultCollection->habits_count = 1;
    defaultCollection->active_habit_id = 0;
+   defaultCollection->calendar_offset_weeks = 0;  // Initialize new field
 
    SaveHabitsJSON(defaultCollection);
 }
 
-
 static void LoadHabitsJSON(HabitCollection* collection) {
-   StorageConfig storage_config;
-   determine_storage_directory(&storage_config);
+    StorageConfig storage_config;
+    determine_storage_directory(&storage_config);
 
-   long file_size;
-   char* jsonStr = read_file_contents(storage_config.habits_path, &file_size);
-   if (!jsonStr) {
-       HabitCollection defaultCollection = {0};
-       CreateDefaultHabitsJSON(&defaultCollection);
-       *collection = defaultCollection;
-       return;
-   }
+    long file_size;
+    char* jsonStr = read_file_contents(storage_config.habits_path, &file_size);
+    if (!jsonStr) {
+        HabitCollection defaultCollection = {0};
+        CreateDefaultHabitsJSON(&defaultCollection);
+        *collection = defaultCollection;
+        return;
+    }
 
-   cJSON* root = cJSON_Parse(jsonStr);
-   free(jsonStr);
+    cJSON* root = cJSON_Parse(jsonStr);
+    free(jsonStr);
 
-   if (!root) {
-       HabitCollection defaultCollection = {0};
-       CreateDefaultHabitsJSON(&defaultCollection);
-       *collection = defaultCollection;
-       return;
-   }
+    if (!root) {
+        HabitCollection defaultCollection = {0};
+        CreateDefaultHabitsJSON(&defaultCollection);
+        *collection = defaultCollection;
+        return;
+    }
 
-   memset(collection, 0, sizeof(HabitCollection));
-   collection->active_habit_id = cJSON_GetObjectItem(root, "active_habit_id")->valueint;
-   
-   cJSON* habits = cJSON_GetObjectItem(root, "habits");
-   cJSON* habit;
-   cJSON_ArrayForEach(habit, habits) {
-       if (collection->habits_count >= MAX_HABITS) break;
-       LoadHabitFromJSON(&collection->habits[collection->habits_count++], habit, collection);
-   }
+    memset(collection, 0, sizeof(HabitCollection));
+    
+    cJSON* active_habit_id = cJSON_GetObjectItem(root, "active_habit_id");
+    cJSON* is_calendar_expanded = cJSON_GetObjectItem(root, "is_calendar_expanded");
+    cJSON* extra_weeks = cJSON_GetObjectItem(root, "extra_weeks");
+    cJSON* calendar_offset_weeks = cJSON_GetObjectItem(root, "calendar_offset_weeks");
 
-   cJSON_Delete(root);
+    if (active_habit_id && cJSON_IsNumber(active_habit_id)) {
+        collection->active_habit_id = (uint32_t)cJSON_GetNumberValue(active_habit_id);
+    }
+    if (is_calendar_expanded && cJSON_IsBool(is_calendar_expanded)) {
+        collection->is_calendar_expanded = cJSON_IsTrue(is_calendar_expanded);
+    }
+    if (extra_weeks && cJSON_IsNumber(extra_weeks)) {
+        collection->extra_weeks = (int)cJSON_GetNumberValue(extra_weeks);
+    }
+    // Load new field if present
+    if (calendar_offset_weeks && cJSON_IsNumber(calendar_offset_weeks)) {
+        collection->calendar_offset_weeks = (int)cJSON_GetNumberValue(calendar_offset_weeks);
+    } else {
+        collection->calendar_offset_weeks = 0;  // Default to 0 if not found
+    }
+
+    cJSON* habits = cJSON_GetObjectItem(root, "habits");
+    cJSON* habit;
+    cJSON_ArrayForEach(habit, habits) {
+        if (collection->habits_count >= MAX_HABITS) break;
+        LoadHabitFromJSON(&collection->habits[collection->habits_count++], habit, collection);
+    }
+
+    cJSON_Delete(root);
 }
-
 #endif
 
 void DeleteHabit(HabitCollection* collection, uint32_t habit_id) {
@@ -314,6 +341,7 @@ void LoadHabits(HabitCollection* collection) {
    Rocks_TextInput* saved_input = collection->habit_name_input;
    bool saved_editing_state = collection->is_editing_new_habit;
    uint32_t saved_active_id = collection->active_habit_id;
+   int saved_calendar_offset = collection->calendar_offset_weeks;
 
    #ifdef __EMSCRIPTEN__
        JS_LoadHabits(collection);
@@ -325,6 +353,11 @@ void LoadHabits(HabitCollection* collection) {
    collection->habit_name_input = saved_input;
    collection->is_editing_new_habit = saved_editing_state;
    collection->active_habit_id = saved_active_id;
+   
+   // Make sure the calendar offset is valid
+   if (collection->calendar_offset_weeks < 0) {
+       collection->calendar_offset_weeks = 0;
+   }
 
    // Initialize default habit if none exists
    if (collection->habits_count == 0) {
@@ -335,6 +368,7 @@ void LoadHabits(HabitCollection* collection) {
        default_habit->days_count = 0;
        collection->habits_count = 1;
        collection->active_habit_id = 0;
+       collection->calendar_offset_weeks = 0;
    }
 }
 

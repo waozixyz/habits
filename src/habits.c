@@ -365,6 +365,7 @@ void RenderHabitHeader() {
     
     }
 }
+
 void RenderHabitTabBar() {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
     QuestThemeExtension* theme = (QuestThemeExtension*)base_theme.extension;
@@ -395,7 +396,10 @@ void RenderHabitTabBar() {
                 },
                 .layoutDirection = CLAY_LEFT_TO_RIGHT
             },
-            .scroll = { .vertical = true }
+            .scroll = { 
+                .horizontal = true,  // Correct direction for tab bar
+                .vertical = false   // Disable vertical scroll
+            }
         }) {
             for (size_t i = 0; i < habits.habits_count; i++) {
                 RenderHabitTab(&habits.habits[i]);
@@ -459,27 +463,22 @@ void CleanupHabitsPage(Rocks* rocks) {
     memset(&habits, 0, sizeof(habits));
 }
 
-
-static void HandleCalendarExpand(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+static void HandleCalendarShiftUp(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
     if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        if (!habits.is_calendar_expanded) {
-            habits.is_calendar_expanded = true;
-            habits.extra_weeks = 2;
-        } else {
-            habits.extra_weeks += 2; 
+        habits.calendar_offset_weeks += 1;
+        SaveHabits(&habits);
+    }
+}
+
+static void HandleCalendarShiftDown(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
+    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
+        if (habits.calendar_offset_weeks > 0) {
+            habits.calendar_offset_weeks -= 1;
+            SaveHabits(&habits);
         }
-        SaveHabits(&habits);
     }
 }
 
-
-static void HandleCalendarCollapse(Clay_ElementId elementId, Clay_PointerData pointerInfo, intptr_t userData) {
-    if (pointerInfo.state == CLAY_POINTER_DATA_PRESSED_THIS_FRAME) {
-        habits.is_calendar_expanded = false;
-        habits.extra_weeks = 0;
-        SaveHabits(&habits);
-    }
-}
 
 void RenderHabitsPage(float dt) {
     Rocks_Theme base_theme = Rocks_GetTheme(GRocks);
@@ -502,16 +501,28 @@ void RenderHabitsPage(float dt) {
     today_midnight.tm_sec = 0;
     time_t today_timestamp = mktime(&today_midnight);
 
+    // Fixed window size: 2 weeks past, 3 weeks future = 5 weeks total
+    const int WEEKS_BACK = 2;
+    const int WEEKS_FORWARD = 3;
+    const int TOTAL_WEEKS = WEEKS_BACK + WEEKS_FORWARD;
+
+    // Calculate date range - shifted by offset
     struct tm start_date = today_midnight;
-    start_date.tm_mday -= (14 + (habits.is_calendar_expanded ? habits.extra_weeks * 7 : 0));
+    start_date.tm_mday -= (WEEKS_BACK * 7 + habits.calendar_offset_weeks * 7);
     mktime(&start_date);
 
-    struct tm end_date = today_midnight;
-    end_date.tm_mday += 21; // Show 3 weeks into the future
+    struct tm end_date = start_date;
+    end_date.tm_mday += (TOTAL_WEEKS * 7);
     mktime(&end_date);
 
     static const char *day_labels[] = {"S", "M", "T", "W", "T", "F", "S"};
 
+    time_t start_time = mktime(&start_date);
+    time_t end_time = mktime(&end_date);
+    
+    // Always show exactly 5 weeks (or however many TOTAL_WEEKS is set to)
+    int total_weeks = TOTAL_WEEKS;
+    
     CLAY({
         .id = CLAY_ID("HabitsContainer"),
         .layout = {
@@ -575,7 +586,7 @@ void RenderHabitsPage(float dt) {
             .layout = {
                 .sizing = {
                     .width = CLAY_SIZING_GROW(),
-                    .height = CLAY_SIZING_FIT(0)
+                    .height = CLAY_SIZING_GROW()
                 },
                 .childAlignment = { .x = CLAY_ALIGN_X_CENTER }
             },
@@ -593,81 +604,40 @@ void RenderHabitsPage(float dt) {
                     .padding = CLAY_PADDING_ALL(16)
                 }
             }) {
-                time_t start_time = mktime(&start_date);
-                time_t end_time = mktime(&end_date);
-                int total_days = (int)((end_time - start_time) / (60 * 60 * 24)) + 1;
-                int total_weeks = (total_days + 6) / 7;
-
-                struct tm current = start_date;
-                
-
-                if (habits.is_calendar_expanded) {
+                // Top "look up" button - always visible
+                CLAY({
+                    .id = CLAY_ID("CalendarUpButton"),
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_GROW(),
+                            .height = CLAY_SIZING_GROW()
+                        },
+                        .childAlignment = {
+                            .x = CLAY_ALIGN_X_CENTER,
+                            .y = CLAY_ALIGN_Y_CENTER
+                        }
+                    },
+                    .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
+                    .cornerRadius = CLAY_CORNER_RADIUS(4)
+                }) {
+                    Clay_OnHover(HandleCalendarShiftUp, 0);
                     CLAY({
-                        .id = CLAY_ID("TopExpandButton"),
                         .layout = {
                             .sizing = {
-                                .width = CLAY_SIZING_GROW(),
-                                .height = CLAY_SIZING_GROW()
-                            },
-                            .childAlignment = {
-                                .x = CLAY_ALIGN_X_CENTER,
-                                .y = CLAY_ALIGN_Y_CENTER
+                                .width = CLAY_SIZING_FIXED(24),
+                                .height = CLAY_SIZING_FIXED(24)
                             }
                         },
-                        .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
-                        .cornerRadius = CLAY_CORNER_RADIUS(4)
-                    }) {
-                        Clay_OnHover(HandleCalendarExpand, 0);
-                        CLAY({
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_FIXED(24),
-                                    .height = CLAY_SIZING_FIXED(24)
-                                }
-                            },
-                            .image = {
-                                .sourceDimensions = HABIT_ICONS[3].dimensions,
-                                .imageData = habit_icon_images[3]
-                            }
-                        }) {}
-                    }
+                        .image = {
+                            .sourceDimensions = HABIT_ICONS[3].dimensions,
+                            .imageData = habit_icon_images[3]
+                        }
+                    }) {}
                 }
                 
+                // Calendar grid - all weeks
+                struct tm current = start_date;
                 for (int row = 0; row < total_weeks; row++) {
-                    if ((row == 0 && !habits.is_calendar_expanded) || (row == 2 && habits.is_calendar_expanded)) {
-                        Clay_ElementId toggleButtonId = habits.is_calendar_expanded ? 
-                            CLAY_ID("CollapsePastRowsButton") : CLAY_ID("ExpandPastRowsButton");
-                        
-                        CLAY({
-                            .id = toggleButtonId,
-                            .layout = {
-                                .sizing = {
-                                    .width = CLAY_SIZING_GROW(),
-                                    .height = CLAY_SIZING_GROW()
-                                },
-                                .childAlignment = {
-                                    .x = CLAY_ALIGN_X_CENTER,
-                                    .y = CLAY_ALIGN_Y_CENTER
-                                }
-                            },
-                            .backgroundColor = Clay_Hovered() ? base_theme.primary_hover : base_theme.background,
-                            .cornerRadius = CLAY_CORNER_RADIUS(4),
-                        }) {
-                            Clay_OnHover(habits.is_calendar_expanded ? HandleCalendarCollapse : HandleCalendarExpand, 0);
-                            CLAY({
-                                .layout = {
-                                    .sizing = {
-                                        .width = CLAY_SIZING_FIXED(24),
-                                        .height = CLAY_SIZING_FIXED(24)
-                                    }
-                                },
-                                .image = {
-                                    .sourceDimensions = HABIT_ICONS[habits.is_calendar_expanded ? 4 : 3].dimensions,
-                                    .imageData = habit_icon_images[habits.is_calendar_expanded ? 4 : 3]
-                                }
-                            }) {}
-                        }
-                    }
                     CLAY({
                         .id = CLAY_IDI("WeekRow", row),
                         .layout = {
@@ -702,16 +672,43 @@ void RenderHabitsPage(float dt) {
                         }
                     }
                 }
+                
+                // Bottom "look down" button - always visible, enabled only when offset > 0
+                CLAY({
+                    .id = CLAY_ID("CalendarDownButton"),
+                    .layout = {
+                        .sizing = {
+                            .width = CLAY_SIZING_GROW(),
+                            .height = CLAY_SIZING_GROW()
+                        },
+                        .childAlignment = {
+                            .x = CLAY_ALIGN_X_CENTER,
+                            .y = CLAY_ALIGN_Y_CENTER
+                        }
+                    },
+                    .backgroundColor = (habits.calendar_offset_weeks > 0) ? 
+                        (Clay_Hovered() ? base_theme.primary_hover : base_theme.background) : 
+                        (Clay_Color){base_theme.background.r * 0.7f, base_theme.background.g * 0.7f, base_theme.background.b * 0.7f, base_theme.background.a},
+                    .cornerRadius = CLAY_CORNER_RADIUS(4)
+                }) {
+                    if (habits.calendar_offset_weeks > 0) {
+                        Clay_OnHover(HandleCalendarShiftDown, 0);
+                    }
+                    CLAY({
+                        .layout = {
+                            .sizing = {
+                                .width = CLAY_SIZING_FIXED(24),
+                                .height = CLAY_SIZING_FIXED(24)
+                            }
+                        },
+                        .image = {
+                            .sourceDimensions = HABIT_ICONS[4].dimensions,
+                            .imageData = habit_icon_images[4]
+                        }
+                    }) {}
+                }
             }
         }
     }
-     // After rendering, check if we need to do initial scroll
-    if (!habits.has_done_initial_scroll) {
-        Clay_ScrollContainerData scroll_data = Clay_GetScrollContainerData(CLAY_ID("CalendarScrollContainer"));
-        if (scroll_data.found && scroll_data.scrollPosition) {
-            scroll_data.scrollPosition->y = -42; // One row height
-            habits.has_done_initial_scroll = true;
-            SaveHabits(&habits);
-        }
-    }
 }
+

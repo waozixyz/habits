@@ -44,6 +44,7 @@ typedef struct {
     bool is_calendar_expanded;
     int extra_weeks;
     bool has_done_initial_scroll;  
+    int calendar_offset_weeks;
 } HabitCollection;
 
 // Public API
