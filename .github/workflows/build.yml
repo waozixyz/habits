@@ -29,7 +29,7 @@ jobs:
             libxcursor-dev \
             libsodium-dev
 
-      # Build raylib directly without trying to use cached version
+      # Build raylib directly without caching
       - name: Build raylib
         run: |
           git clone --depth 1 --branch '5.0' https://github.com/raysan5/raylib.git
@@ -46,12 +46,11 @@ jobs:
           mkdir -p artifacts/habits-linux-x86_64
           cp build/habits artifacts/habits-linux-x86_64/
           
-          # Create assets directory and copy images and fonts
-          mkdir -p artifacts/habits-linux-x86_64/assets
-          mkdir -p artifacts/habits-linux-x86_64/assets/images
-          mkdir -p artifacts/habits-linux-x86_64/assets/fonts
-          cp -r images/* artifacts/habits-linux-x86_64/assets/images/
-          cp -r fonts/* artifacts/habits-linux-x86_64/assets/fonts/
+          # Copy images and fonts keeping original structure
+          mkdir -p artifacts/habits-linux-x86_64/images
+          mkdir -p artifacts/habits-linux-x86_64/fonts
+          cp -r images/* artifacts/habits-linux-x86_64/images/
+          cp -r fonts/* artifacts/habits-linux-x86_64/fonts/
           
           cd artifacts
           tar czf habits-linux-x86_64.tar.gz habits-linux-x86_64/
@@ -68,15 +67,15 @@ jobs:
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/share/habits/assets/images
-          mkdir -p AppDir/usr/share/habits/assets/fonts
+          mkdir -p AppDir/usr/share/habits/images
+          mkdir -p AppDir/usr/share/habits/fonts
           
           # Copy executable
           cp build/habits AppDir/usr/bin/
           
-          # Copy assets
-          cp -r images/* AppDir/usr/share/habits/assets/images/
-          cp -r fonts/* AppDir/usr/share/habits/assets/fonts/
+          # Copy images and fonts with original structure
+          cp -r images/* AppDir/usr/share/habits/images/
+          cp -r fonts/* AppDir/usr/share/habits/fonts/
           
           # Create AppRun file
           echo '#!/bin/bash' > AppDir/AppRun
