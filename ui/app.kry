@@ -1,0 +1,38 @@
+@include "../widgets/tab_bar.kry"
+
+style "main_window" {
+    background_color: "#333333FF"
+}
+
+style "content_area" {
+    background_color: "#555555FF"
+}
+
+App {
+    window_title: "Habits"
+    window_width: 400
+    window_height: 500
+    layout: column
+
+    Container {
+        id: "content"
+        style: "content_area"
+        layout: grow center
+    }
+
+    TabBar {
+        id: "main_nav"
+        position: "bottom"
+
+        Button {
+            text: "Tab 1"
+            onClick: "handleTab1"
+            style: "tab_item_style_active_base"
+        }
+        Button {
+            text: "Tab 2"
+            onClick: "handleTab2"
+            style: "tab_item_style_base"
+        }
+    }
+}
