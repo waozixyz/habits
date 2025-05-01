@@ -1,23 +1,52 @@
 @include "../widgets/tab_bar.kry"
 
 style "main_window" {
-    background_color: "#333333FF"
+    background_color: #333333FF
 }
 
 style "content_area" {
-    background_color: "#555555FF"
+    background_color: #555555FF
+    padding: 10
+}
+
+style "page_text" {
+    font_size: 20
+    text_color: #EEEEEEFF
+    text_alignment: center
 }
 
 App {
     window_title: "Habits"
     window_width: 400
     window_height: 500
+    style: "main_window"
     layout: column
 
     Container {
         id: "content"
         style: "content_area"
         layout: grow center
+
+        Container {
+            id: "page_tab1"
+            layout: center
+
+            Text {
+                style: "page_text"
+                text: "Habits View Content"
+            }
+        }
+
+        Container {
+            id: "page_tab2"
+            visible: false
+            layout: center
+
+            Text {
+                style: "page_text"
+                text: "Stats View Content"
+            }
+        }
     }
 
     TabBar {
@@ -25,12 +54,14 @@ App {
         position: "bottom"
 
         Button {
-            text: "Tab 1"
+            id: "button_tab1"
+            text: "Habits"
             onClick: "handleTab1"
             style: "tab_item_style_active_base"
         }
         Button {
-            text: "Tab 2"
+            id: "button_tab2"
+            text: "Stats"
             onClick: "handleTab2"
             style: "tab_item_style_base"
         }
