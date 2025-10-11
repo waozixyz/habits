@@ -1,2 +1,36 @@
+# Logs and debug files
 *.log
+kryon_memory_debug.log
+
+# Old Kryon bytecode (if any remain)
 *.krb
+
+# Nim compiled files
+main
+*.exe
+*.out
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+
+# Nim cache
+nimcache/
+*.nimcache/
+
+# Build artifacts
+build/
+dist/
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+.tmp/
