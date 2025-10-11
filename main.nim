@@ -173,16 +173,22 @@ var selectedHabit = 0
 
 # Helper to get current habit's calendar
 proc getCurrentCalendarDays(): seq[CalendarDay] =
+  # Register dependency on selected habit for reactive updates
+  registerDependency("selectedHabit")
+  registerDependency("tabSelectedIndex")
+
   if selectedHabit >= 0 and selectedHabit < habits.len:
+    echo "DEBUG: getCurrentCalendarDays for habit ", selectedHabit, " (", habits[selectedHabit].name, ")"
     return generateCalendarDays(habits[selectedHabit])
+  echo "DEBUG: getCurrentCalendarDays - no valid habit selected"
   return @[]
 
 var calendarDays = getCurrentCalendarDays()
 
 
-# Create reactive event handler for completion toggles
-proc createToggleCompletionHandler(date: string): proc() =
-  return proc() =
+# Create specific handler for each date
+proc createToggleCompletionHandler(date: string): EventHandler =
+  return proc(data: string = "") =
     if selectedHabit >= 0 and selectedHabit < habits.len:
       # Toggle the completion status
       let currentStatus = habits[selectedHabit].completions.getOrDefault(date, false)
@@ -194,40 +200,104 @@ proc createToggleCompletionHandler(date: string): proc() =
       # Update calendar display
       calendarDays = getCurrentCalendarDays()
 
+      # Manually invalidate the reactive value to trigger UI updates
+      invalidateReactiveValue("calendarDays")
+
       echo "Toggled completion for ", date, " to ", not currentStatus
 
-# CalendarDay component - similar to C version's calendar box
-proc CalendarDayBox(day: CalendarDay): Element =
-  # Color based on completion status and day type (but subtle today)
-  let baseColor = if day.isCompleted: "#22c55e"  # Green for completed
-                  elif day.isPast: "#333333"     # Dark gray for past days
-                  else: "#555555"                # Gray for future/incomplete
 
-  # Only allow clicking on current month days (those with a date)
-  let clickHandler = if day.date != "":
-    createToggleCompletionHandler(day.date)
-  else:
-    proc() = echo "Invalid day"
+# Create a reactive calendar day button that works with the DSL system
+proc CalendarDayButton(dayIndex: int): Element =
+  echo "DEBUG: Creating CalendarDayButton for index ", dayIndex
 
-  Button:
-    text = $day.dayNumber  # No unicode symbols
-    width = 40
-    height = 40
-    backgroundColor = baseColor
-    fontSize = 12
-    onClick = clickHandler
+  # Create element manually to set complex reactive properties
+  let button = newElement(ekButton)
+  button.setProp("width", val(40))
+  button.setProp("height", val(40))
+  button.setProp("fontSize", val(12))
 
-# CalendarWeek component - creates a row of 7 calendar days
-proc CalendarWeek(calendar: seq[CalendarDay], startIndex: int): Element =
-  Row:
-    gap = 5
-    CalendarDayBox(calendar[startIndex + 0])
-    CalendarDayBox(calendar[startIndex + 1])
-    CalendarDayBox(calendar[startIndex + 2])
-    CalendarDayBox(calendar[startIndex + 3])
-    CalendarDayBox(calendar[startIndex + 4])
-    CalendarDayBox(calendar[startIndex + 5])
-    CalendarDayBox(calendar[startIndex + 6])
+  # Set reactive text that shows day number
+  button.setProp("text", valGetter(proc(): Value =
+    # Register dependencies on both calendar data and selected habit
+    registerDependency("calendarDays")
+    registerDependency("selectedHabit")
+    registerDependency("tabSelectedIndex")
+
+    let currentDays = getCurrentCalendarDays()
+    if dayIndex < currentDays.len:
+      val($currentDays[dayIndex].dayNumber)
+    else:
+      val("")
+  ))
+
+  # Set reactive background color that shows completion status
+  button.setProp("backgroundColor", valGetter(proc(): Value =
+    # Register dependencies on both calendar data and selected habit
+    registerDependency("calendarDays")
+    registerDependency("selectedHabit")
+    registerDependency("tabSelectedIndex")
+
+    let currentDays = getCurrentCalendarDays()
+    if dayIndex < currentDays.len:
+      let day = currentDays[dayIndex]
+      let colorStr = if day.isPast:
+                       if day.isCompleted: "#1a7f37"
+                       else: "#333333"
+                     else:
+                       if day.isCompleted: "#22c55e"
+                       else: "#555555"
+      val(colorStr)
+    else:
+      val("#555555")
+  ))
+
+  # Set click handler that toggles completion
+  let clickHandler = proc(data: string = "") =
+    echo "CLICKED: Calendar day button for index ", dayIndex
+    # Get current calendar days when clicked
+    let currentDays = getCurrentCalendarDays()
+    if dayIndex < currentDays.len and currentDays[dayIndex].date != "":
+      if selectedHabit >= 0 and selectedHabit < habits.len:
+        let date = currentDays[dayIndex].date
+        echo "TOGGLING: ", date, " for habit ", habits[selectedHabit].name
+
+        # Toggle the completion status
+        let currentStatus = habits[selectedHabit].completions.getOrDefault(date, false)
+        habits[selectedHabit].completions[date] = not currentStatus
+
+        echo "SAVING: New status for ", date, " is ", not currentStatus
+
+        # Save to file
+        saveHabits(habits)
+
+        # Update global calendar days
+        calendarDays = getCurrentCalendarDays()
+
+        # Manually invalidate the reactive value to trigger UI updates
+        invalidateReactiveValue("calendarDays")
+
+        echo "TOGGLED: Completion for ", date, " changed to ", not currentStatus
+    else:
+      echo "INVALID: Calendar day ", dayIndex, " has no date"
+
+  button.setEventHandler("onClick", clickHandler)
+  echo "DEBUG: Set onClick handler for button ", dayIndex, " handlers: ", button.eventHandlers.len
+  button
+
+# CalendarWeek component - creates a row of 7 calendar days using DSL
+proc CalendarWeek(startIndex: int): Element =
+  echo "DEBUG: CalendarWeek called with startIndex = ", startIndex
+
+  # Create row element manually
+  let row = newElement(ekRow)
+  row.setProp("gap", val(5))
+
+  # Add 7 calendar day buttons
+  for i in 0..6:
+    let dayButton = CalendarDayButton(startIndex + i)
+    row.addChild(dayButton)
+
+  row
 
 # Helper to get habit names for for loops (reactive)
 var habitNames: seq[string] = @[]
@@ -262,8 +332,18 @@ proc addNewHabitHandler() =
 
   echo "Selected tab: ", selectedHabit
 
-# Create reactive event handler that invalidates habits and selectedHabit
-let addNewHabit = createReactiveEventHandler(addNewHabitHandler, @["habits", "selectedHabit"])
+# Create reactive event handler that invalidates habits, selectedHabit, and calendarDays
+let addNewHabit = createReactiveEventHandler(addNewHabitHandler, @["habits", "selectedHabit", "calendarDays"])
+
+# Handler for when selected habit changes (tab switching)
+proc onSelectedHabitChange() =
+  # Update calendar when switching tabs
+  calendarDays = getCurrentCalendarDays()
+  invalidateReactiveValue("calendarDays")
+  echo "Switched to habit: ", selectedHabit
+
+# Create reactive event handler for habit selection changes
+let habitTabChanged = createReactiveEventHandler(onSelectedHabitChange, @["selectedHabit", "calendarDays"])
 
 # Helper to find habit by name
 proc findHabitByName(name: string): Habit =
@@ -302,63 +382,19 @@ proc HabitPanel(habitName: string): Element =
       # Week day headers
       Row:
         gap = 5
-        Button:
-          text = "S"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: S"
-        Button:
-          text = "M"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: M"
-        Button:
-          text = "T"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: T1"
-        Button:
-          text = "W"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: W"
-        Button:
-          text = "T"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: T2"
-        Button:
-          text = "F"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: F"
-        Button:
-          text = "S"
-          width = 40
-          height = 20
-          backgroundColor = "#2d2d2d"
-          fontSize = 10
-          onClick = proc() = echo "Day header clicked: S"
+        for dayName in ["S", "M", "T", "W", "T", "F", "S"]:
+          Button:
+            text = dayName.getString()
+            width = 40
+            height = 20
+            backgroundColor = "#2d2d2d"
+            fontSize = 10
+            onClick = proc() = echo "Day header clicked: ", dayName.getString()
 
-      # Calendar days grid - use reactive calendarDays
-      CalendarWeek(calendarDays, 0)
-      CalendarWeek(calendarDays, 7)
-      CalendarWeek(calendarDays, 14)
-      CalendarWeek(calendarDays, 21)
-      CalendarWeek(calendarDays, 28)
-      CalendarWeek(calendarDays, 35)
+      # Calendar days grid - 6 weeks of calendar days
+      # Clean for loop using integer ranges
+      for weekStart in countup(0, 35, 7):
+        CalendarWeek(weekStart.getInt())
 
 # Main application
 let app = kryonApp:
@@ -371,7 +407,7 @@ let app = kryonApp:
     background = "#1a1a1a"
 
     TabGroup:
-      selectedIndex = selectedHabit 
+      selectedIndex = selectedHabit
       backgroundColor = "#1a1a1a"
       width = 800
       height = 600
@@ -382,7 +418,7 @@ let app = kryonApp:
         # Tabs for each habit
         for habitName in habitNames:
           Tab:
-            title = habitName
+            title = habitName.getString()
             backgroundColor = "#3d3d3d"
             activeBackgroundColor = "#4a90e2"
             textColor = "#ffffff"
@@ -400,7 +436,7 @@ let app = kryonApp:
 
         # Tab panels for each habit
         for habitName in habitNames:
-          HabitPanel(habitName)
+          HabitPanel(habitName.getString())
 
 # Run the application
 when isMainModule:
