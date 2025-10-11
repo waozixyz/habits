@@ -5,17 +5,120 @@ import ../kryon/src/kryon
 import ../kryon/src/backends/raylib_backend
 import times
 import strutils
+import json
+import os
+import tables
 
-# Calendar day data structure
-type CalendarDay = object
-  dayNumber: int
-  isPast: bool
-  isToday: bool
-  isCompleted: bool
-  date: string
+# Data structures
+type
+  CalendarDay = object
+    dayNumber: int
+    isPast: bool
+    isToday: bool
+    isCompleted: bool
+    date: string
+
+  Habit = object
+    name: string
+    createdAt: string
+    completions: Table[string, bool]  # date -> completed
+
+# File path for storing habits data
+const HABITS_FILE = "~/Documents/quest/habits.json"
+
+# Helper function to expand ~ in file paths
+proc expandTilde(path: string): string =
+  if path.startsWith("~/"):
+    return getHomeDir() / path[2..^1]
+  return path
+
+# Load habits from JSON file
+proc loadHabits(): seq[Habit] =
+  let filePath = expandTilde(HABITS_FILE)
+
+  # Create directory if it doesn't exist
+  let dir = parentDir(filePath)
+  if not dirExists(dir):
+    createDir(dir)
+
+  # If file doesn't exist, return default habits
+  if not fileExists(filePath):
+    echo "Habits file not found, creating default habits"
+    return @[
+      Habit(name: "Meditation", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
+      Habit(name: "Exercise", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
+      Habit(name: "Reading", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]())
+    ]
+
+  # Load and parse JSON
+  try:
+    let jsonContent = readFile(filePath)
+    let jsonNode = parseJson(jsonContent)
+    var habits: seq[Habit] = @[]
+
+    for habitNode in jsonNode["habits"]:
+      var habit = Habit(
+        name: habitNode["name"].getStr(),
+        createdAt: habitNode["createdAt"].getStr(),
+        completions: initTable[string, bool]()
+      )
+
+      # Load completions
+      if habitNode.hasKey("completions"):
+        for date, completed in habitNode["completions"].pairs():
+          habit.completions[date] = completed.getBool()
+
+      habits.add(habit)
+
+    echo "Loaded ", habits.len, " habits from file"
+    return habits
+  except:
+    echo "Error loading habits: ", getCurrentExceptionMsg()
+    echo "Returning default habits"
+    return @[
+      Habit(name: "Meditation", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
+      Habit(name: "Exercise", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
+      Habit(name: "Reading", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]())
+    ]
+
+# Save habits to JSON file
+proc saveHabits(habits: seq[Habit]) =
+  let filePath = expandTilde(HABITS_FILE)
+
+  # Create directory if it doesn't exist
+  let dir = parentDir(filePath)
+  if not dirExists(dir):
+    createDir(dir)
+
+  # Build JSON structure
+  var habitsArray = newJArray()
+  for habit in habits:
+    var habitObj = %* {
+      "name": habit.name,
+      "createdAt": habit.createdAt
+    }
+
+    # Add completions
+    var completionsObj = newJObject()
+    for date, completed in habit.completions.pairs():
+      completionsObj[date] = %completed
+    habitObj["completions"] = completionsObj
+
+    habitsArray.add(habitObj)
+
+  let jsonNode = %* {
+    "habits": habitsArray
+  }
+
+  # Write to file
+  try:
+    writeFile(filePath, jsonNode.pretty())
+    echo "Saved ", habits.len, " habits to file"
+  except:
+    echo "Error saving habits: ", getCurrentExceptionMsg()
 
 # Helper function to generate calendar days for current month
-proc generateCalendarDays(): seq[CalendarDay] =
+proc generateCalendarDays(habit: Habit): seq[CalendarDay] =
   let now = now()
   let currentDate = now
   let startOfMonth = currentDate - initDuration(days = currentDate.monthday - 1)
@@ -40,12 +143,14 @@ proc generateCalendarDays(): seq[CalendarDay] =
   # Add current month days
   for day in 1..getDaysInMonth(currentDate.month, currentDate.year):
     let dayDateTime = startOfMonth + initDuration(days = day - 1)
+    let dateStr = dayDateTime.format("yyyy-MM-dd")
+    let isCompleted = habit.completions.getOrDefault(dateStr, false)
     days.add(CalendarDay(
       dayNumber: day,
       isPast: dayDateTime < now,
       isToday: dayDateTime.monthday == currentDate.monthday,
-      isCompleted: false, # This would be loaded from habit data
-      date: dayDateTime.format("yyyy-MM-dd")
+      isCompleted: isCompleted,
+      date: dateStr
     ))
 
   # Add days from next month to complete the grid
@@ -63,49 +168,114 @@ proc generateCalendarDays(): seq[CalendarDay] =
   return days
 
 # Application state
-var habits = @["Meditation", "Exercise", "Reading"]
+var habits = loadHabits()
 var selectedHabit = 0
-var calendarDays = generateCalendarDays()
+
+# Helper to get current habit's calendar
+proc getCurrentCalendarDays(): seq[CalendarDay] =
+  if selectedHabit >= 0 and selectedHabit < habits.len:
+    return generateCalendarDays(habits[selectedHabit])
+  return @[]
+
+var calendarDays = getCurrentCalendarDays()
+
+
+# Create reactive event handler for completion toggles
+proc createToggleCompletionHandler(date: string): proc() =
+  return proc() =
+    if selectedHabit >= 0 and selectedHabit < habits.len:
+      # Toggle the completion status
+      let currentStatus = habits[selectedHabit].completions.getOrDefault(date, false)
+      habits[selectedHabit].completions[date] = not currentStatus
+
+      # Save to file
+      saveHabits(habits)
+
+      # Update calendar display
+      calendarDays = getCurrentCalendarDays()
+
+      echo "Toggled completion for ", date, " to ", not currentStatus
 
 # CalendarDay component - similar to C version's calendar box
 proc CalendarDayBox(day: CalendarDay): Element =
-  let baseColor = if day.isPast: "#333333"
-                  elif day.isToday: "#4a90e2"
-                  else: "#555555"
+  # Color based on completion status and day type (but subtle today)
+  let baseColor = if day.isCompleted: "#22c55e"  # Green for completed
+                  elif day.isPast: "#333333"     # Dark gray for past days
+                  else: "#555555"                # Gray for future/incomplete
+
+  # Only allow clicking on current month days (those with a date)
+  let clickHandler = if day.date != "":
+    createToggleCompletionHandler(day.date)
+  else:
+    proc() = echo "Invalid day"
 
   Button:
-    text = $day.dayNumber
+    text = $day.dayNumber  # No unicode symbols
     width = 40
     height = 40
     backgroundColor = baseColor
     fontSize = 12
-    onClick = proc() = echo "Day clicked: ", day.date
+    onClick = clickHandler
 
 # CalendarWeek component - creates a row of 7 calendar days
-proc CalendarWeek(startIndex: string): Element =
-  let startIndexInt = parseInt(startIndex)
+proc CalendarWeek(calendar: seq[CalendarDay], startIndex: int): Element =
   Row:
     gap = 5
-    CalendarDayBox(calendarDays[startIndexInt + 0])
-    CalendarDayBox(calendarDays[startIndexInt + 1])
-    CalendarDayBox(calendarDays[startIndexInt + 2])
-    CalendarDayBox(calendarDays[startIndexInt + 3])
-    CalendarDayBox(calendarDays[startIndexInt + 4])
-    CalendarDayBox(calendarDays[startIndexInt + 5])
-    CalendarDayBox(calendarDays[startIndexInt + 6])
+    CalendarDayBox(calendar[startIndex + 0])
+    CalendarDayBox(calendar[startIndex + 1])
+    CalendarDayBox(calendar[startIndex + 2])
+    CalendarDayBox(calendar[startIndex + 3])
+    CalendarDayBox(calendar[startIndex + 4])
+    CalendarDayBox(calendar[startIndex + 5])
+    CalendarDayBox(calendar[startIndex + 6])
+
+# Helper to get habit names for for loops (reactive)
+var habitNames: seq[string] = @[]
+
+proc updateHabitNames() =
+  habitNames = @[]
+  for habit in habits:
+    habitNames.add(habit.name)
+
+# Initialize habit names
+updateHabitNames()
 
 # Add new habit handler
 proc addNewHabitHandler() =
   echo "Adding new habit"
-  habits.add("New Habit")
+  let newHabit = Habit(
+    name: "New Habit",
+    createdAt: $now().format("yyyy-MM-dd"),
+    completions: initTable[string, bool]()
+  )
+  habits.add(newHabit)
   selectedHabit = habits.len - 1
+
+  # Update habit names list for UI
+  updateHabitNames()
+
+  # Save to file
+  saveHabits(habits)
+
+  # Update calendar
+  calendarDays = getCurrentCalendarDays()
+
   echo "Selected tab: ", selectedHabit
 
 # Create reactive event handler that invalidates habits and selectedHabit
 let addNewHabit = createReactiveEventHandler(addNewHabitHandler, @["habits", "selectedHabit"])
 
+# Helper to find habit by name
+proc findHabitByName(name: string): Habit =
+  for habit in habits:
+    if habit.name == name:
+      return habit
+  # Return a default habit if not found
+  return Habit(name: name, createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]())
+
 # HabitPanel component - displays content for each habit tab
-proc HabitPanel(habit: string): Element =
+proc HabitPanel(habitName: string): Element =
+  let habit = findHabitByName(habitName)
   TabPanel:
     backgroundColor = "#1a1a1a"
     padding = 30
@@ -114,12 +284,12 @@ proc HabitPanel(habit: string): Element =
       gap = 20
 
       Text:
-        text = habit & " Tracker"
+        text = habit.name & " Tracker"
         color = "#ffffff"
         fontSize = 24
 
       Text:
-        text = "Track your " & habit & " habit here"
+        text = "Track your " & habit.name & " habit here"
         color = "#aaaaaa"
         fontSize = 14
 
@@ -182,9 +352,13 @@ proc HabitPanel(habit: string): Element =
           fontSize = 10
           onClick = proc() = echo "Day header clicked: S"
 
-      # Calendar days grid - create proper 6-week calendar using for loops
-      for weekStart in @[0, 7, 14, 21, 28, 35]:
-        CalendarWeek(weekStart)
+      # Calendar days grid - use reactive calendarDays
+      CalendarWeek(calendarDays, 0)
+      CalendarWeek(calendarDays, 7)
+      CalendarWeek(calendarDays, 14)
+      CalendarWeek(calendarDays, 21)
+      CalendarWeek(calendarDays, 28)
+      CalendarWeek(calendarDays, 35)
 
 # Main application
 let app = kryonApp:
@@ -206,9 +380,9 @@ let app = kryonApp:
         backgroundColor = "#2d2d2d"
 
         # Tabs for each habit
-        for habit in habits:
+        for habitName in habitNames:
           Tab:
-            title = habit
+            title = habitName
             backgroundColor = "#3d3d3d"
             activeBackgroundColor = "#4a90e2"
             textColor = "#ffffff"
@@ -225,8 +399,8 @@ let app = kryonApp:
         backgroundColor = "#1a1a1a"
 
         # Tab panels for each habit
-        for habit in habits:
-          HabitPanel(habit)
+        for habitName in habitNames:
+          HabitPanel(habitName)
 
 # Run the application
 when isMainModule:
