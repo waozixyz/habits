@@ -111,22 +111,25 @@ proc saveHabits(habits: seq[Habit]) =
     writeFile(filePath, jsonNode.pretty())
   except:
     echo "Error saving habits: ", getCurrentExceptionMsg()
-
 # Helper function to generate calendar days for current month
 proc generateCalendarDays(habit: Habit): seq[CalendarDay] =
   let now = now()
-  let currentDate = now
-  let startOfMonth = currentDate - initDuration(days = currentDate.monthday - 1)
+  # Use named arguments to correctly specify the timezone
+  let todayStart = dateTime(now.year, now.month, now.monthday, zone = now.timezone)
+  let startOfMonth = dateTime(todayStart.year, todayStart.month, 1, zone = todayStart.timezone)
 
   var days: seq[CalendarDay] = @[]
 
-  # Add days from previous month to fill first week
+  # Add days from previous month to fill the first week
   let startWeekday = weekday(startOfMonth)
-  let prevMonthDays = startWeekday.ord - 1
-  if prevMonthDays > 0:
-    let prevMonth = currentDate - initDuration(days = currentDate.monthday)
+  let prevMonthPaddingCount = startWeekday.ord
+
+  if prevMonthPaddingCount > 0:
+    let prevMonth = startOfMonth - initDuration(days = 1)
     let prevMonthDaysCount = getDaysInMonth(prevMonth.month, prevMonth.year)
-    for i in countdown(prevMonthDaysCount - prevMonthDays + 1, prevMonthDaysCount):
+    let firstPaddingDay = prevMonthDaysCount - prevMonthPaddingCount + 1
+
+    for i in firstPaddingDay..prevMonthDaysCount:
       days.add(CalendarDay(
         dayNumber: i,
         isPast: true,
@@ -136,35 +139,38 @@ proc generateCalendarDays(habit: Habit): seq[CalendarDay] =
       ))
 
   # Add current month days
-  for day in 1..getDaysInMonth(currentDate.month, currentDate.year):
+  for day in 1..getDaysInMonth(todayStart.month, todayStart.year):
     let dayDateTime = startOfMonth + initDuration(days = day - 1)
     let dateStr = dayDateTime.format("yyyy-MM-dd")
     let isCompleted = habit.completions.getOrDefault(dateStr, false)
     days.add(CalendarDay(
       dayNumber: day,
-      isPast: dayDateTime < now,
-      isToday: dayDateTime.monthday == currentDate.monthday,
+      isPast: dayDateTime < todayStart,
+      isToday: dayDateTime.year == todayStart.year and
+               dayDateTime.month == todayStart.month and
+               dayDateTime.monthday == todayStart.monthday,
       isCompleted: isCompleted,
       date: dateStr
     ))
 
   # Add days from next month to complete the grid
-  let totalDays = days.len
-  let remainingDays = 42 - totalDays # 6 weeks * 7 days
-  for day in 1..remainingDays:
-    days.add(CalendarDay(
-      dayNumber: day,
-      isPast: false,
-      isToday: false,
-      isCompleted: false,
-      date: ""
-    ))
+  let remainingDays = 42 - days.len
+  if remainingDays > 0:
+    for day in 1..remainingDays:
+      days.add(CalendarDay(
+        dayNumber: day,
+        isPast: false,
+        isToday: false,
+        isCompleted: false,
+        date: ""
+      ))
 
   return days
 
 # Application state
 var habits = loadHabits()
 var selectedHabit = 0
+
 
 # Helper to get current habit's calendar
 proc getCurrentCalendarDays(): seq[CalendarDay] =
@@ -353,7 +359,7 @@ proc HabitPanel(habitName: string): Element =
       # Week day headers
       Row:
         gap = 5
-        for dayName in ["S", "M", "T", "W", "T", "F", "S"]:
+        for dayName in ["M", "T", "W", "T", "F", "S", "S"]:
           Button:
             text = dayName.getString()
             width = 40
