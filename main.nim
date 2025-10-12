@@ -43,7 +43,6 @@ proc loadHabits(): seq[Habit] =
 
   # If file doesn't exist, return default habits
   if not fileExists(filePath):
-    echo "Habits file not found, creating default habits"
     return @[
       Habit(name: "Meditation", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
       Habit(name: "Exercise", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
@@ -70,11 +69,8 @@ proc loadHabits(): seq[Habit] =
 
       habits.add(habit)
 
-    echo "Loaded ", habits.len, " habits from file"
     return habits
   except:
-    echo "Error loading habits: ", getCurrentExceptionMsg()
-    echo "Returning default habits"
     return @[
       Habit(name: "Meditation", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
       Habit(name: "Exercise", createdAt: $now().format("yyyy-MM-dd"), completions: initTable[string, bool]()),
@@ -113,7 +109,6 @@ proc saveHabits(habits: seq[Habit]) =
   # Write to file
   try:
     writeFile(filePath, jsonNode.pretty())
-    echo "Saved ", habits.len, " habits to file"
   except:
     echo "Error saving habits: ", getCurrentExceptionMsg()
 
@@ -178,9 +173,7 @@ proc getCurrentCalendarDays(): seq[CalendarDay] =
   registerDependency("tabSelectedIndex")
 
   if selectedHabit >= 0 and selectedHabit < habits.len:
-    echo "DEBUG: getCurrentCalendarDays for habit ", selectedHabit, " (", habits[selectedHabit].name, ")"
     return generateCalendarDays(habits[selectedHabit])
-  echo "DEBUG: getCurrentCalendarDays - no valid habit selected"
   return @[]
 
 var calendarDays = getCurrentCalendarDays()
@@ -203,13 +196,9 @@ proc createToggleCompletionHandler(date: string): EventHandler =
       # Manually invalidate the reactive value to trigger UI updates
       invalidateReactiveValue("calendarDays")
 
-      echo "Toggled completion for ", date, " to ", not currentStatus
-
 
 # Create a reactive calendar day button that works with the DSL system
 proc CalendarDayButton(dayIndex: int): Element =
-  echo "DEBUG: Creating CalendarDayButton for index ", dayIndex
-
   # Create element manually to set complex reactive properties
   let button = newElement(ekButton)
   button.setProp("width", val(40))
@@ -253,19 +242,15 @@ proc CalendarDayButton(dayIndex: int): Element =
 
   # Set click handler that toggles completion
   let clickHandler = proc(data: string = "") =
-    echo "CLICKED: Calendar day button for index ", dayIndex
     # Get current calendar days when clicked
     let currentDays = getCurrentCalendarDays()
     if dayIndex < currentDays.len and currentDays[dayIndex].date != "":
       if selectedHabit >= 0 and selectedHabit < habits.len:
         let date = currentDays[dayIndex].date
-        echo "TOGGLING: ", date, " for habit ", habits[selectedHabit].name
 
         # Toggle the completion status
         let currentStatus = habits[selectedHabit].completions.getOrDefault(date, false)
         habits[selectedHabit].completions[date] = not currentStatus
-
-        echo "SAVING: New status for ", date, " is ", not currentStatus
 
         # Save to file
         saveHabits(habits)
@@ -276,18 +261,11 @@ proc CalendarDayButton(dayIndex: int): Element =
         # Manually invalidate the reactive value to trigger UI updates
         invalidateReactiveValue("calendarDays")
 
-        echo "TOGGLED: Completion for ", date, " changed to ", not currentStatus
-    else:
-      echo "INVALID: Calendar day ", dayIndex, " has no date"
-
   button.setEventHandler("onClick", clickHandler)
-  echo "DEBUG: Set onClick handler for button ", dayIndex, " handlers: ", button.eventHandlers.len
   button
 
 # CalendarWeek component - creates a row of 7 calendar days using DSL
 proc CalendarWeek(startIndex: int): Element =
-  echo "DEBUG: CalendarWeek called with startIndex = ", startIndex
-
   # Create row element manually
   let row = newElement(ekRow)
   row.setProp("gap", val(5))
@@ -312,7 +290,6 @@ updateHabitNames()
 
 # Add new habit handler
 proc addNewHabitHandler() =
-  echo "Adding new habit"
   let newHabit = Habit(
     name: "New Habit",
     createdAt: $now().format("yyyy-MM-dd"),
@@ -330,8 +307,6 @@ proc addNewHabitHandler() =
   # Update calendar
   calendarDays = getCurrentCalendarDays()
 
-  echo "Selected tab: ", selectedHabit
-
 # Create reactive event handler that invalidates habits, selectedHabit, and calendarDays
 let addNewHabit = createReactiveEventHandler(addNewHabitHandler, @["habits", "selectedHabit", "calendarDays"])
 
@@ -340,10 +315,6 @@ proc onSelectedHabitChange() =
   # Update calendar when switching tabs
   calendarDays = getCurrentCalendarDays()
   invalidateReactiveValue("calendarDays")
-  echo "Switched to habit: ", selectedHabit
-
-# Create reactive event handler for habit selection changes
-let habitTabChanged = createReactiveEventHandler(onSelectedHabitChange, @["selectedHabit", "calendarDays"])
 
 # Helper to find habit by name
 proc findHabitByName(name: string): Habit =
@@ -389,7 +360,6 @@ proc HabitPanel(habitName: string): Element =
             height = 20
             backgroundColor = "#2d2d2d"
             fontSize = 10
-            onClick = proc() = echo "Day header clicked: ", dayName.getString()
 
       # Calendar days grid - 6 weeks of calendar days
       # Clean for loop using integer ranges
