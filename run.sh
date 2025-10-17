@@ -40,8 +40,8 @@ if [ ! -f "$MAIN_FILE" ]; then
     exit 1
 fi
 
-print_status "Compiling and running main.nim..."
+print_status "Running habits app with Kryon..."
 cd "$HABITS_DIR"
-nim c -r main.nim
+kryon run --filename main.nim
 
 print_success "Habits application completed!"

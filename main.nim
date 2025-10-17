@@ -154,6 +154,15 @@ proc addNewHabitHandler() =
   habits.add(newHabit)
   selectedHabit = habits.len - 1
 
+# Toggle habit completion for a specific date
+proc toggleHabitCompletion(habit: var Habit, day: CalendarDay) =
+  echo day.date
+  # Toggle the completion status for this date
+  habit.completions[day.date] = not habit.completions.getOrDefault(day.date, false)
+
+  # Save the updated habits to file
+  saveHabits(habits)
+
 
 style calendarDayStyle(day: CalendarDay):
   backgroundColor = "#3d3d3d" 
@@ -206,13 +215,13 @@ let app = kryonApp:
       TabContent:
         backgroundColor = "#1a1a1a"
 
-        for habit in habits:     
+        for i in 0..<habits.len:     
           TabPanel:
             backgroundColor = "#1a1a1a"
             padding = 30
 
             Text:
-              text = habit.name & " Tracker"
+              text = habits[i].name & " Tracker"
               color = "#ffffff"
               fontSize = 24
 
@@ -238,7 +247,7 @@ let app = kryonApp:
                 onClick = proc() =
                   displayedMonth = displayedMonth + 1.months
 
-            let calendarDays = generateCalendarData(habit, displayedMonth)
+            let calendarDays = generateCalendarData(habits[i], displayedMonth)
 
             # Week day headers
             Row:
@@ -254,8 +263,8 @@ let app = kryonApp:
             for weekStart in countup(0, 35, 7):
               Row:
                 gap = 5
-                for i in 0..6:
-                  let dayIndex = weekStart + i
+                for j in 0..6:
+                  let dayIndex = weekStart + j
                   let day = calendarDays[dayIndex]
 
                   Button:
@@ -264,3 +273,4 @@ let app = kryonApp:
                     fontSize = 12
                     text = if day.isCurrentMonth: $day.dayNumber else: ""
                     style = calendarDayStyle(day)
+                    onClick = toggleHabitCompletion(habits[i], day)
