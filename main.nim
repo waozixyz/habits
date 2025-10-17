@@ -108,6 +108,7 @@ proc saveHabits(habits: seq[Habit]) =
 
 var habits: seq[Habit] = loadHabits()
 var selectedHabit = 0
+var editingHabit: int = -1
 
 # This is our powerful, flexible, and efficient calendar data generator
 proc generateCalendarData(habit: Habit, monthToDisplay: DateTime): seq[CalendarDay] =
@@ -164,10 +165,9 @@ proc isDateInFuture(dateStr: string): bool =
     return false
 
 # Toggle habit completion for a specific date
-proc toggleHabitCompletion(habit: var Habit, day: CalendarDay) =
-  echo day.date
+proc toggleHabitCompletion(habit: var Habit, dateStr: string) =
   # Toggle the completion status for this date
-  habit.completions[day.date] = not habit.completions.getOrDefault(day.date, false)
+  habit.completions[dateStr] = not habit.completions.getOrDefault(dateStr, false)
 
   # Save the updated habits to file
   saveHabits(habits)
@@ -224,15 +224,49 @@ let app = kryonApp:
       TabContent:
         backgroundColor = "#1a1a1a"
 
-        for i in 0..<habits.len:     
+        for i in 0..<habits.len:   
           TabPanel:
             backgroundColor = "#1a1a1a"
             padding = 30
 
-            Text:
-              text = habits[i].name & " Tracker"
-              color = "#ffffff"
-              fontSize = 24
+            if editingHabit == i:
+              Row:
+                alignItems = "center"
+                gap = 10
+
+                Input:
+                  value = habits[i].name
+                  onTextChange = proc(newName: string) =
+                    habits[i].name = newName
+                    echo newName
+                    echo "hello"
+                    saveHabits(habits)
+                  fontSize = 24
+                  color = "#ffffff"
+                  backgroundColor = "#2d2d2d"
+                  width = 300
+
+                Button:
+                  text = "Done"
+                  onClick = proc() = editingHabit = -1
+                  backgroundColor = "#4a90e2"
+                  textColor = "#ffffff"
+            else:
+              Row:
+                alignItems = "center"
+                gap = 10
+
+                Text:
+                  text = habits[i].name
+                  color = "#ffffff"
+                  fontSize = 24
+
+                Button:
+                  text = "Edit"
+                  onClick = proc() = editingHabit = i
+                  backgroundColor = "#4a90e2"
+                  textColor = "#ffffff"
+                  fontSize = 14
 
 
 
@@ -283,4 +317,4 @@ let app = kryonApp:
                     text = if day.isCurrentMonth: $day.dayNumber else: ""
                     style = calendarDayStyle(day)
                     disabled = isDateInFuture(day.date)
-                    onClick = toggleHabitCompletion(habits[i], day)
+                    onClick = toggleHabitCompletion(habits[i], day.date)
