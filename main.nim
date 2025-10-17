@@ -229,17 +229,14 @@ let app = kryonApp:
             backgroundColor = "#1a1a1a"
             padding = 30
 
-            if editingHabit == i:
-              Row:
-                alignItems = "center"
-                gap = 10
-
+            Row:
+              alignItems = "center"
+              gap = 10
+              if editingHabit == i:
                 Input:
                   value = habits[i].name
                   onTextChange = proc(newName: string) =
                     habits[i].name = newName
-                    echo newName
-                    echo "hello"
                     saveHabits(habits)
                   fontSize = 24
                   color = "#ffffff"
@@ -251,11 +248,7 @@ let app = kryonApp:
                   onClick = proc() = editingHabit = -1
                   backgroundColor = "#4a90e2"
                   textColor = "#ffffff"
-            else:
-              Row:
-                alignItems = "center"
-                gap = 10
-
+              else:
                 Text:
                   text = habits[i].name
                   color = "#ffffff"
