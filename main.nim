@@ -154,6 +154,15 @@ proc addNewHabitHandler() =
   habits.add(newHabit)
   selectedHabit = habits.len - 1
 
+# Check if a date is in the future
+proc isDateInFuture(dateStr: string): bool =
+  try:
+    let targetDate = parse(dateStr, "yyyy-MM-dd")
+    let today = now()
+    return targetDate > today
+  except:
+    return false
+
 # Toggle habit completion for a specific date
 proc toggleHabitCompletion(habit: var Habit, day: CalendarDay) =
   echo day.date
@@ -273,4 +282,5 @@ let app = kryonApp:
                     fontSize = 12
                     text = if day.isCurrentMonth: $day.dayNumber else: ""
                     style = calendarDayStyle(day)
+                    disabled = isDateInFuture(day.date)
                     onClick = toggleHabitCompletion(habits[i], day)
