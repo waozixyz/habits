@@ -34,3 +34,5 @@ dist/
 # Temporary files
 *.tmp
 .tmp/
+
+.kryon

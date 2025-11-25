@@ -1,4 +1,4 @@
-import ../kryon/src/kryon
+import ../kryon/bindings/nim/kryon_dsl
 import times
 import tables
 import strutils
