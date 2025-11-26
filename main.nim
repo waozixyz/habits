@@ -199,8 +199,6 @@ let app = kryonApp:
     TabGroup:
       selectedIndex = selectedHabit
       backgroundColor = "#1a1a1a"
-      width = 800
-      height = 600
 
       TabBar:
         backgroundColor = "#2d2d2d"

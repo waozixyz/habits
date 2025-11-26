@@ -1,33 +1,59 @@
 { pkgs ? import <nixpkgs> {} }:
 
+let
+  sdl3 = pkgs.sdl3;
+  sdl3_ttf = pkgs.sdl3-ttf;
+  sdl3_image = pkgs.sdl3-image;
+in
 pkgs.mkShell {
   buildInputs = with pkgs; [
-    # Nim compiler
+    # Core toolchain
     nim
-
-    # Raylib for graphics
-    raylib
-
-    # Build tools
+    nimble
     gcc
+    gnumake
     pkg-config
 
-    # Optional: Nim language server for IDE support
-    nimlsp
+    # SDL3 stack (matches Kryon dev env)
+    sdl3
+    sdl3_ttf
+    sdl3_image
+
+    # Terminal/TUI backend support
+    libtickit
+
+    # Lua (for Kryon Lua bindings parity)
+    lua
+    lua54Packages.lua
+
+    # Graphics system libs
+    libGL
+    libglvnd
+    xorg.libX11
+    xorg.libXrandr
+    xorg.libXi
+    xorg.libXcursor
+    libxkbcommon
+
+    # Dev tools
+    git
+    gdb
+    which
+    tree
   ];
 
   shellHook = ''
-    echo "Habits App Development Environment"
-    echo "=================================="
-    echo "Nim version: $(nim --version | head -1)"
+    echo "Habits App Dev Environment (Kryon-aligned)"
+    echo "==========================================="
+    echo "Nim: $(nim --version | head -1)"
+    echo "SDL3: ${sdl3}"
+    echo "SDL3_ttf: ${sdl3_ttf}"
+    echo "SDL3_image: ${sdl3_image}"
     echo ""
-    echo "To run the app:"
-    echo "  nim c -r main.nim"
-    echo "  or: ./run.sh"
+    echo "Try: kryon run main.nim"
     echo ""
   '';
 
-  # Environment variables for raylib
-  NIX_CFLAGS_COMPILE = "-I${pkgs.raylib}/include";
-  NIX_LDFLAGS = "-L${pkgs.raylib}/lib -lraylib";
+  # Make sure pkg-config sees SDL3 libs (same as Kryon env)
+  PKG_CONFIG_PATH = pkgs.lib.makeSearchPath "lib/pkgconfig" [ sdl3 sdl3_ttf sdl3_image ];
 }
