@@ -1,0 +1,16 @@
+[project]
+name = "habits"
+version = "1.0.0"
+description = "Habits Tracker - A simple habit tracking application"
+entry = "main.lua"
+
+[build]
+target = "lua"
+
+[plugins]
+# Kryon storage plugin for localStorage-like persistence
+storage = "../kryon-plugin-storage"
+
+[dependencies]
+# Kryon DSL and reactive system
+kryon = "./kryon"

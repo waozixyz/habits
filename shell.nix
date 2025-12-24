@@ -22,9 +22,8 @@ pkgs.mkShell {
     # Terminal/TUI backend support
     libtickit
 
-    # Lua (for Kryon Lua bindings parity)
-    lua
-    lua54Packages.lua
+    # LuaJIT (for Kryon Lua bindings parity)
+    luajit
 
     # Graphics system libs
     libGL
@@ -50,8 +49,12 @@ pkgs.mkShell {
     echo "SDL3_ttf: ${sdl3_ttf}"
     echo "SDL3_image: ${sdl3_image}"
     echo ""
-    echo "Try: kryon run main.nim"
+    echo "Try: kryon run main.nim or kryon run main.lua"
     echo ""
+
+    # Add storage plugin to library paths
+    export LD_LIBRARY_PATH="$HOME/Projects/kryon-plugin-storage/build:''${LD_LIBRARY_PATH:-}"
+    export LUA_CPATH="$HOME/Projects/kryon-plugin-storage/build/?.so;;"
   '';
 
   # Make sure pkg-config sees SDL3 libs (same as Kryon env)
