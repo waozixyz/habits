@@ -4,6 +4,7 @@ kryon_memory_debug.log
 
 # Old Kryon bytecode (if any remain)
 *.krb
+.kryon_cache
 
 # Nim compiled files
 main

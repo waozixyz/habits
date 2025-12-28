@@ -53,8 +53,9 @@ pkgs.mkShell {
     echo ""
 
     # Add storage plugin to library paths
-    export LD_LIBRARY_PATH="$HOME/Projects/kryon-plugin-storage/build:''${LD_LIBRARY_PATH:-}"
-    export LUA_CPATH="$HOME/Projects/kryon-plugin-storage/build/?.so;;"
+    export LD_LIBRARY_PATH="/mnt/storage/Projects/kryon-storage/build:''${LD_LIBRARY_PATH:-}"
+    export LUA_PATH="/mnt/storage/Projects/kryon-storage/bindings/lua/?.lua;;"
+    export LUA_CPATH="/mnt/storage/Projects/kryon-storage/build/?.so;;"
   '';
 
   # Make sure pkg-config sees SDL3 libs (same as Kryon env)

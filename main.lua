@@ -1,6 +1,10 @@
--- Habits Tracker - Lua version
+-- Habits Tracker - Clean Automatic Reactivity Version
 local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
+
+-- Smart DSL Components
+local Column, Row, Text, Button, Input, TabGroup, TabBar, TabContent, TabPanel, mapArray, unpack =
+  UI.Column, UI.Row, UI.Text, UI.Button, UI.Input, UI.TabGroup, UI.TabBar, UI.TabContent, UI.TabPanel, UI.mapArray, UI.unpack
 
 -- Load kryon-plugin-storage
 local Storage = require("storage")
@@ -8,7 +12,10 @@ local Storage = require("storage")
 -- Initialize storage once
 Storage.init("habits")
 
--- Helper functions for date handling
+-- ============================================================================
+-- Helper Functions
+-- ============================================================================
+
 local function getCurrentDate()
   return os.date("%Y-%m-%d")
 end
@@ -26,7 +33,6 @@ local function getDaysInMonth(year, month)
 end
 
 local function getWeekday(year, month, day)
-  -- Returns 0=Sunday, 1=Monday, ..., 6=Saturday
   local t = os.time({year=year, month=month, day=day})
   return tonumber(os.date("%w", t))
 end
@@ -45,24 +51,19 @@ local function isDateInFuture(dateStr)
   return targetTime > today
 end
 
-local function isSameDay(dateStr)
-  if not dateStr or dateStr == "" then return false end
-  return dateStr == getCurrentDate()
-end
-
--- Habits persistence using kryon-plugin-storage
+-- ============================================================================
+-- Persistence
+-- ============================================================================
 
 local function loadHabits()
   local today = getCurrentDate()
 
-  -- Default habits
   local defaultHabits = {
     {name = "Meditation", createdAt = today, completions = {}},
     {name = "Exercise", createdAt = today, completions = {}},
     {name = "Reading", createdAt = today, completions = {}}
   }
 
-  -- Try to load from storage
   local stored = Storage.getItem("habits_data")
   if stored then
     local success, data = pcall(Storage.decode, stored)
@@ -75,13 +76,80 @@ local function loadHabits()
 end
 
 local function saveHabits(habits)
-  local data = {habits = habits}
+  -- Use Reactive.toRaw to get the underlying data structure
+  local rawHabits = Reactive.toRaw(habits)
+  local data = {habits = rawHabits}
   local content = Storage.encode(data)
   Storage.setItem("habits_data", content)
-  -- Auto-save happens automatically!
 end
 
--- Calendar generation
+-- ============================================================================
+-- Reactive State - Clean and Simple!
+-- ============================================================================
+
+local state = Reactive.reactive({
+  habits = loadHabits(),
+  selectedHabit = 1,
+  editingHabit = 0,
+  displayedMonth = {
+    year = tonumber(os.date("%Y")),
+    month = tonumber(os.date("%m"))
+  }
+})
+
+-- ============================================================================
+-- Event Handlers - Dramatically Simplified!
+-- ============================================================================
+
+local function addNewHabit()
+  table.insert(state.habits, {
+    name = "New Habit",
+    createdAt = getCurrentDate(),
+    completions = {}
+  })
+  state.selectedHabit = #state.habits
+  saveHabits(state.habits)
+end
+
+local function toggleHabitCompletion(habitIndex, dateStr)
+  if not dateStr or dateStr == "" or isDateInFuture(dateStr) then
+    return
+  end
+
+  local completions = state.habits[habitIndex].completions
+  local oldValue = completions[dateStr] or false
+  completions[dateStr] = not oldValue
+
+  saveHabits(state.habits)
+end
+
+local function updateHabitName(habitIndex, newName)
+  if state.habits[habitIndex] then
+    state.habits[habitIndex].name = newName
+    saveHabits(state.habits)
+  end
+end
+
+local function navigateMonth(offset)
+  local newMonth = state.displayedMonth.month + offset
+  local newYear = state.displayedMonth.year
+
+  if newMonth > 12 then
+    newMonth = 1
+    newYear = newYear + 1
+  elseif newMonth < 1 then
+    newMonth = 12
+    newYear = newYear - 1
+  end
+
+  state.displayedMonth.month = newMonth
+  state.displayedMonth.year = newYear
+end
+
+-- ============================================================================
+-- Calendar Generation
+-- ============================================================================
+
 local function generateCalendarData(habit, year, month)
   local today = getCurrentDate()
   local todayYear, todayMonth, todayDay = today:match("(%d+)-(%d+)-(%d+)")
@@ -89,7 +157,6 @@ local function generateCalendarData(habit, year, month)
 
   local daysInMonth = getDaysInMonth(year, month)
   local firstWeekday = getWeekday(year, month, 1)
-  -- Convert to Monday=0 format
   local startOffset = (firstWeekday + 6) % 7
 
   local days = {}
@@ -144,68 +211,10 @@ local function generateCalendarData(habit, year, month)
   return days
 end
 
--- Reactive state
-local habits = Reactive.state(loadHabits())
-local selectedHabit = Reactive.state(1) -- Lua is 1-indexed
-local editingHabit = Reactive.state(0) -- 0 means not editing
-local displayedMonth = Reactive.state({
-  year = tonumber(os.date("%Y")),
-  month = tonumber(os.date("%m"))
-})
+-- ============================================================================
+-- Styling
+-- ============================================================================
 
--- Event handlers
-local function addNewHabit()
-  local currentHabits = habits:get()
-  table.insert(currentHabits, {
-    name = "New Habit",
-    createdAt = getCurrentDate(),
-    completions = {}
-  })
-  habits:set(currentHabits)
-  selectedHabit:set(#currentHabits)
-  saveHabits(currentHabits)
-end
-
-local function toggleHabitCompletion(habitIndex, dateStr)
-  if not dateStr or dateStr == "" or isDateInFuture(dateStr) then
-    return
-  end
-
-  local currentHabits = habits:get()
-  local habit = currentHabits[habitIndex]
-  if habit then
-    habit.completions[dateStr] = not (habit.completions[dateStr] or false)
-    habits:set(currentHabits)
-    saveHabits(currentHabits)
-  end
-end
-
-local function updateHabitName(habitIndex, newName)
-  local currentHabits = habits:get()
-  if currentHabits[habitIndex] then
-    currentHabits[habitIndex].name = newName
-    habits:set(currentHabits)
-    saveHabits(currentHabits)
-  end
-end
-
-local function navigateMonth(offset)
-  local current = displayedMonth:get()
-  local newMonth = current.month + offset
-  local newYear = current.year
-
-  if newMonth > 12 then
-    newMonth = 1
-    newYear = newYear + 1
-  elseif newMonth < 1 then
-    newMonth = 12
-    newYear = newYear - 1
-  end
-
-  displayedMonth:set({year = newYear, month = newMonth})
-end
-
--- Style helper
 local function getDayStyle(day)
   local style = {
     backgroundColor = "#3d3d3d",
@@ -223,100 +232,15 @@ local function getDayStyle(day)
   return style
 end
 
--- Build UI
+-- ============================================================================
+-- UI Components
+-- ============================================================================
+
 local function buildHabitPanel(habit, habitIndex)
-  local currentMonth = displayedMonth:get()
-  local calendarDays = generateCalendarData(habit, currentMonth.year, currentMonth.month)
+  local calendarDays = generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month)
 
-  local children = {}
-
-  -- Title row (editable)
-  local titleRow = {}
-  if editingHabit:get() == habitIndex then
-    table.insert(titleRow, UI.Input({
-      value = habit.name,
-      onTextChange = function(newName)
-        updateHabitName(habitIndex, newName)
-      end,
-      fontSize = 24,
-      color = "#ffffff",
-      backgroundColor = "#2d2d2d",
-      width = "300px"
-    }))
-    table.insert(titleRow, UI.Button({
-      text = "Done",
-      onClick = function()
-        editingHabit:set(0)
-      end,
-      backgroundColor = "#4a90e2",
-      color = "#ffffff"
-    }))
-  else
-    table.insert(titleRow, UI.Text({
-      text = habit.name,
-      color = "#ffffff",
-      fontSize = 24
-    }))
-    table.insert(titleRow, UI.Button({
-      text = "Edit",
-      onClick = function()
-        editingHabit:set(habitIndex)
-      end,
-      backgroundColor = "#4a90e2",
-      color = "#ffffff",
-      fontSize = 14
-    }))
-  end
-
-  table.insert(children, UI.Row({
-    alignItems = "center",
-    gap = 10,
-    children = titleRow
-  }))
-
-  -- Month navigation
-  table.insert(children, UI.Row({
-    alignItems = "center",
-    justifyContent = "space-between",
-    children = {
-      UI.Button({
-        text = "<",
-        onClick = function()
-          navigateMonth(-1)
-        end
-      }),
-      UI.Text({
-        text = formatMonth(currentMonth.year, currentMonth.month),
-        color = "#ffffff",
-        fontSize = 24
-      }),
-      UI.Button({
-        text = ">",
-        onClick = function()
-          navigateMonth(1)
-        end
-      })
-    }
-  }))
-
-  -- Week day headers
-  local weekDays = {}
-  for _, dayName in ipairs({"M", "T", "W", "T", "F", "S", "S"}) do
-    table.insert(weekDays, UI.Button({
-      text = dayName,
-      width = "40px",
-      height = "20px",
-      backgroundColor = "#2d2d2d",
-      fontSize = 10,
-      disabled = true
-    }))
-  end
-  table.insert(children, UI.Row({
-    gap = 5,
-    children = weekDays
-  }))
-
-  -- Calendar grid (6 rows x 7 columns)
+  -- Build calendar grid rows
+  local calendarRows = {}
   for weekRow = 0, 5 do
     local rowChildren = {}
     for dayCol = 0, 6 do
@@ -324,7 +248,7 @@ local function buildHabitPanel(habit, habitIndex)
       local day = calendarDays[dayIndex]
       local style = getDayStyle(day)
 
-      table.insert(rowChildren, UI.Button({
+      table.insert(rowChildren, Button {
         width = "40px",
         height = "40px",
         fontSize = 12,
@@ -336,53 +260,135 @@ local function buildHabitPanel(habit, habitIndex)
         onClick = function()
           toggleHabitCompletion(habitIndex, day.date)
         end
-      }))
+      })
     end
-    table.insert(children, UI.Row({
+    table.insert(calendarRows, Row {
       gap = 5,
-      children = rowChildren
-    }))
+      unpack(rowChildren)
+    })
   end
 
-  return UI.TabPanel({
+  -- Build main panel
+  return TabPanel {
     backgroundColor = "#1a1a1a",
     padding = 30,
-    children = children
-  })
+
+    -- Title row (editable)
+    Row {
+      alignItems = "center",
+      gap = 10,
+
+      state.editingHabit == habitIndex and Input {
+        value = habit.name,
+        onTextChange = function(newName)
+          updateHabitName(habitIndex, newName)
+        end,
+        fontSize = 24,
+        color = "#ffffff",
+        backgroundColor = "#2d2d2d",
+        width = "300px"
+      } or Text {
+        text = habit.name,
+        color = "#ffffff",
+        fontSize = 24
+      },
+
+      Button {
+        text = state.editingHabit == habitIndex and "Done" or "Edit",
+        onClick = function()
+          state.editingHabit = state.editingHabit == habitIndex and 0 or habitIndex
+        end,
+        backgroundColor = "#4a90e2",
+        color = "#ffffff",
+        fontSize = state.editingHabit == habitIndex and nil or 14
+      }
+    },
+
+    -- Month navigation
+    Row {
+      alignItems = "center",
+      justifyContent = "space-between",
+
+      Button {
+        text = "<",
+        onClick = function()
+          navigateMonth(-1)
+        end
+      },
+
+      Text {
+        text = formatMonth(state.displayedMonth.year, state.displayedMonth.month),
+        color = "#ffffff",
+        fontSize = 24
+      },
+
+      Button {
+        text = ">",
+        onClick = function()
+          navigateMonth(1)
+        end
+      }
+    },
+
+    -- Week day headers
+    Row {
+      gap = 5,
+      unpack(mapArray({"M", "T", "W", "T", "F", "S", "S"}, function(dayName)
+        return Button {
+          text = dayName,
+          width = "40px",
+          height = "20px",
+          backgroundColor = "#2d2d2d",
+          fontSize = 10,
+          disabled = true
+        }
+      end))
+    },
+
+    -- Calendar grid
+    unpack(calendarRows)
+  }
 end
 
--- Helper to build tabs and panels from habits
 local function buildTabsAndPanels(habitsList)
-  local tabs = {}
-  local panels = {}
-
-  -- Create tab and panel for each habit
-  for i, habit in ipairs(habitsList) do
-    tabs[i] = UI.Tab({
+  -- Map habits to tabs
+  local tabs = mapArray(habitsList, function(habit, i)
+    return UI.Tab {
       title = habit.name,
       backgroundColor = "#3d3d3d",
       activeBackgroundColor = "#4a90e2",
       textColor = "#ffffff",
-      activeTextColor = "#ffffff"
-    })
-    panels[i] = buildHabitPanel(habit, i)
-  end
+      activeTextColor = "#ffffff",
+      onClick = function()
+        state.selectedHabit = i
+      end
+    }
+  end)
 
   -- Add "+" button tab
-  tabs[#tabs + 1] = UI.Tab({
+  table.insert(tabs, UI.Tab {
     title = "+",
     width = "50px",
     backgroundColor = "#3d3d3d",
     onClick = addNewHabit
   })
 
+  -- Map habits to panels using manual loop (mapArray has issues)
+  local panels = {}
+  for i, habit in ipairs(habitsList) do
+    table.insert(panels, buildHabitPanel(habit, i))
+  end
+
   return tabs, panels
 end
 
--- Main UI tree
+-- ============================================================================
+-- Main UI - Automatically Reactive!
+-- ============================================================================
+
 local function buildUI()
-  local currentHabits = habits:get()
-  local tabs, panels = buildTabsAndPanels(currentHabits)
+  local selected = state.selectedHabit
+  local tabs, panels = buildTabsAndPanels(state.habits)
 
   return UI.Column({
     width = "800px",
@@ -391,7 +397,7 @@ local function buildUI()
     windowTitle = "Habits",
     children = {
       UI.TabGroup({
-        selectedIndex = selectedHabit:get() - 1,
+        selectedIndex = selected - 1,
         backgroundColor = "#1a1a1a",
         children = {
           UI.TabBar({
@@ -408,12 +414,19 @@ local function buildUI()
   })
 end
 
--- Return app object
-return {
-  root = buildUI(),
+-- ============================================================================
+-- Create Reactive App - No Manual Computed Wrapper Needed!
+-- ============================================================================
+
+local runtime = require("kryon.runtime")
+
+local app = runtime.createReactiveApp({
+  root = buildUI,  -- Just pass the function - automatic reactivity!
   window = {
     width = 800,
     height = 600,
     title = "Habits"
   }
-}
+})
+
+return app
