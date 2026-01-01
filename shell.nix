@@ -8,8 +8,6 @@ in
 pkgs.mkShell {
   buildInputs = with pkgs; [
     # Core toolchain
-    nim
-    nimble
     gcc
     gnumake
     pkg-config
@@ -49,7 +47,7 @@ pkgs.mkShell {
     echo "SDL3_ttf: ${sdl3_ttf}"
     echo "SDL3_image: ${sdl3_image}"
     echo ""
-    echo "Try: kryon run main.nim or kryon run main.lua"
+    echo "Try: kryon run kryon run main.lua"
     echo ""
 
     # Add storage plugin to library paths
