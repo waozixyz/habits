@@ -1,5 +1,5 @@
 -- Tab bar and panels builder
-local HabitPanel = require("component_habit_panel")
+local HabitPanel = require("components.habit_panel")
 
 local function buildTabsAndPanels(UI, state, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, habitsList)
   -- Map habits to tabs

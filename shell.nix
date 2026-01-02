@@ -47,13 +47,19 @@ pkgs.mkShell {
     echo "SDL3_ttf: ${sdl3_ttf}"
     echo "SDL3_image: ${sdl3_image}"
     echo ""
-    echo "Try: kryon run kryon run main.lua"
+    echo "Try: kryon run main.lua"
     echo ""
 
     # Add storage plugin to library paths
-    export LD_LIBRARY_PATH="/mnt/storage/Projects/kryon-storage/build:''${LD_LIBRARY_PATH:-}"
+    export LD_LIBRARY_PATH="/mnt/storage/Projects/kryon-storage/build:$LD_LIBRARY_PATH"
     export LUA_PATH="/mnt/storage/Projects/kryon-storage/bindings/lua/?.lua;;"
+
+    # Use Kryon from SOURCE
+    export KRYON_SRC="/home/wao/Projects/kryon"
+    export LUA_PATH="$KRYON_SRC/bindings/lua/?.lua;./?.lua;;"
     export LUA_CPATH="/mnt/storage/Projects/kryon-storage/build/?.so;;"
+
+    echo "Using Kryon source from: $KRYON_SRC"
   '';
 
   # Make sure pkg-config sees SDL3 libs (same as Kryon env)

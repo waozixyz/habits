@@ -3,10 +3,10 @@
 local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
 
--- Load kryon-plugin-storage
+-- Load storage plugin (direct JSON files)
 local Storage = require("storage")
 
--- Initialize storage once
+-- Initialize storage once - app name will be used to construct ~/.local/share/habits
 Storage.init("habits")
 
 -- ============================================================================
@@ -30,23 +30,25 @@ local function loadHabits()
     {name = "Reading", createdAt = today, completions = {}}
   }
 
-  local stored = Storage.getItem("habits_data")
-  if stored then
-    local success, data = pcall(Storage.decode, stored)
-    if success and data and data.habits then
-      return data.habits
+  -- Load from collection storage
+  local habits = Storage.Collections.load("habits", defaultHabits)
+
+  -- Ensure completions tables exist
+  for i, habit in ipairs(habits) do
+    if not habit.completions or type(habit.completions) ~= "table" then
+      habit.completions = {}
     end
   end
 
-  return defaultHabits
+  return habits
 end
 
 local function saveHabits(habits)
   -- Use Reactive.toRaw to get the underlying data structure
   local rawHabits = Reactive.toRaw(habits)
-  local data = {habits = rawHabits}
-  local content = Storage.encode(data)
-  Storage.setItem("habits_data", content)
+
+  -- Save collection (auto-saves to disk)
+  Storage.Collections.save("habits", rawHabits)
 end
 
 -- ============================================================================
@@ -63,11 +65,20 @@ local state = Reactive.reactive({
   }
 })
 
+print("[STATE] Created reactive state")
+print("[STATE] Number of habits:", #state.habits)
+for i, h in ipairs(state.habits) do
+  print("[STATE] Habit " .. i .. " properties:")
+  for k, v in pairs(h) do
+    print("[STATE]   " .. k .. " = " .. tostring(v))
+  end
+end
+
 -- ============================================================================
 -- Event Handlers - Dramatically Simplified!
 -- ============================================================================
 
-local Calendar = require("component_calendar")
+local Calendar = require("components.calendar")
 
 local function addNewHabit()
   table.insert(state.habits, {
@@ -86,8 +97,17 @@ local function toggleHabitCompletion(habitIndex, dateStr)
 
   local completions = state.habits[habitIndex].completions
   local oldValue = completions[dateStr] or false
-  completions[dateStr] = not oldValue
+  local newValue = not oldValue
 
+  print(string.format("⚡ Toggling habit %d, date %s: %s -> %s", habitIndex, dateStr, tostring(oldValue), tostring(newValue)))
+
+  -- Modify the reactive state
+  completions[dateStr] = newValue
+
+  -- Verify the write happened
+  print(string.format("✓ After write: completions[%s] = %s", dateStr, tostring(completions[dateStr])))
+
+  -- Save to disk
   saveHabits(state.habits)
 end
 
@@ -118,7 +138,7 @@ end
 -- UI Components
 -- ============================================================================
 
-local Tabs = require("component_tabs")
+local Tabs = require("components.tabs")
 
 -- ============================================================================
 -- Main UI - Automatically Reactive!

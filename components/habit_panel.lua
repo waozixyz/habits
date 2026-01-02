@@ -1,5 +1,5 @@
 -- Individual habit panel component
-local Calendar = require("component_calendar")
+local Calendar = require("components.calendar")
 
 local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex)
   local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month)
