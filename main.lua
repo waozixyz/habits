@@ -94,13 +94,16 @@ end
 local Calendar = require("components.calendar")
 
 local function addNewHabit()
-  table.insert(state.habits, {
+  -- Use direct index assignment to trigger reactive __newindex
+  -- (table.insert bypasses the metatable and doesn't update _target)
+  local newIndex = #state.habits + 1
+  state.habits[newIndex] = {
     name = "New Habit",
     createdAt = getCurrentDate(),
     completions = {},
-    color = ColorPalette.DEFAULT_COLOR
-  })
-  state.selectedHabit = #state.habits
+    color = ColorPalette.getRandomColor()
+  }
+  state.selectedHabit = newIndex
   saveHabits(state.habits)
 end
 

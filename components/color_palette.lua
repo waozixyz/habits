@@ -14,7 +14,13 @@ local COLORS = {
 
 local DEFAULT_COLOR = "#4a90e2"
 
+-- Get a random color from the palette
+local function getRandomColor()
+  return COLORS[math.random(1, #COLORS)].hex
+end
+
 return {
   COLORS = COLORS,
-  DEFAULT_COLOR = DEFAULT_COLOR
+  DEFAULT_COLOR = DEFAULT_COLOR,
+  getRandomColor = getRandomColor
 }
