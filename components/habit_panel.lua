@@ -1,7 +1,13 @@
 -- Individual habit panel component
 local Calendar = require("components.calendar")
 
-local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex)
+local function isCurrentMonth(displayedYear, displayedMonth)
+  local currentYear = tonumber(os.date("%Y"))
+  local currentMonth = tonumber(os.date("%m"))
+  return displayedYear == currentYear and displayedMonth == currentMonth
+end
+
+local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex)
   local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month)
 
   -- Build calendar grid rows
@@ -44,9 +50,9 @@ local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName
       gap = 10,
 
       state.editingHabit == habitIndex and UI.Input {
-        value = habit.name,
+        value = editingState.name,  -- Use non-reactive temp state
         onTextChange = function(newName)
-          updateHabitName(habitIndex, newName)
+          editingState.name = newName  -- Update non-reactive state (no rebuild)
         end,
         fontSize = 24,
         color = "#ffffff",
@@ -61,7 +67,15 @@ local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName
       UI.Button {
         text = state.editingHabit == habitIndex and "Done" or "Edit",
         onClick = function()
-          state.editingHabit = state.editingHabit == habitIndex and 0 or habitIndex
+          if state.editingHabit == habitIndex then
+            -- Done: save the edited name
+            updateHabitName(habitIndex, editingState.name)
+            state.editingHabit = 0
+          else
+            -- Edit: copy current name to editing state
+            editingState.name = habit.name
+            state.editingHabit = habitIndex
+          end
         end,
         backgroundColor = "#4a90e2",
         color = "#ffffff",
@@ -76,6 +90,11 @@ local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName
 
       UI.Button {
         text = "<",
+        backgroundColor = "#4a90e2",
+        color = "#ffffff",
+        fontSize = 18,
+        width = "40px",
+        height = "40px",
         onClick = function()
           navigateMonth(-1)
         end
@@ -89,6 +108,12 @@ local function buildHabitPanel(UI, state, toggleHabitCompletion, updateHabitName
 
       UI.Button {
         text = ">",
+        backgroundColor = "#4a90e2",
+        color = "#ffffff",
+        fontSize = 18,
+        width = "40px",
+        height = "40px",
+        disabled = isCurrentMonth(state.displayedMonth.year, state.displayedMonth.month),
         onClick = function()
           navigateMonth(1)
         end

@@ -65,6 +65,11 @@ local state = Reactive.reactive({
   }
 })
 
+-- Non-reactive editing state (doesn't trigger rebuilds on every keystroke)
+local editingState = {
+  name = ""
+}
+
 print("[STATE] Created reactive state")
 print("[STATE] Number of habits:", #state.habits)
 for i, h in ipairs(state.habits) do
@@ -146,7 +151,7 @@ local Tabs = require("components.tabs")
 
 local function buildUI()
   local selected = state.selectedHabit
-  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits)
+  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits)
 
   return UI.Column({
     width = "800px",
