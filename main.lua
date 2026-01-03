@@ -4,6 +4,9 @@ local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
 local ColorPalette = require("components.color_palette")
 
+-- Seed random number generator
+math.randomseed(os.time())
+
 -- Load storage plugin (direct JSON files)
 local Storage = require("storage")
 
@@ -67,6 +70,7 @@ local state = Reactive.reactive({
   habits = loadHabits(),
   selectedHabit = 1,
   editingHabit = 0,
+  showColorPicker = false,  -- Controls color picker modal visibility
   displayedMonth = {
     year = tonumber(os.date("%Y")),
     month = tonumber(os.date("%m"))
