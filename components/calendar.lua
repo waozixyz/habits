@@ -32,7 +32,7 @@ local function isDateInFuture(dateStr)
 end
 
 -- Generate calendar data for a given habit and month
-local function generateCalendarData(habit, year, month)
+local function generateCalendarData(habit, year, month, themeColor)
   local today = getCurrentDate()
   local todayYear, todayMonth, todayDay = today:match("(%d+)-(%d+)-(%d+)")
   todayYear, todayMonth, todayDay = tonumber(todayYear), tonumber(todayMonth), tonumber(todayDay)
@@ -94,16 +94,16 @@ local function generateCalendarData(habit, year, month)
 end
 
 -- Get styling for a calendar day cell
-local function getDayStyle(day)
+local function getDayStyle(day, themeColor)
   local style = {
     backgroundColor = "#3d3d3d",
     color = "#ffffff"
   }
 
   if day.isCompleted then
-    style.backgroundColor = "#4a90e2"
+    style.backgroundColor = themeColor or "#4a90e2"
   elseif day.isToday then
-    style.borderColor = "#4a90e2"
+    style.borderColor = themeColor or "#4a90e2"
   elseif not day.isCurrentMonth then
     style.backgroundColor = "#2d2d2d"
   end

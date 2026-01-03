@@ -1,5 +1,6 @@
 -- Individual habit panel component
 local Calendar = require("components.calendar")
+local ColorPicker = require("components.color_picker")
 
 local function isCurrentMonth(displayedYear, displayedMonth)
   local currentYear = tonumber(os.date("%Y"))
@@ -7,8 +8,9 @@ local function isCurrentMonth(displayedYear, displayedMonth)
   return displayedYear == currentYear and displayedMonth == currentMonth
 end
 
-local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex)
-  local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month)
+local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex, updateHabitColor)
+  local habitColor = habit.color or "#4a90e2"
+  local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
 
   -- Build calendar grid rows
   local calendarRows = {}
@@ -17,7 +19,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
     for dayCol = 0, 6 do
       local dayIndex = weekRow * 7 + dayCol + 1
       local day = calendarDays[dayIndex]
-      local style = Calendar.getDayStyle(day)
+      local style = Calendar.getDayStyle(day, habitColor)
 
       table.insert(rowChildren, UI.Button {
         width = "40px",
@@ -77,7 +79,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
             state.editingHabit = habitIndex
           end
         end,
-        backgroundColor = "#4a90e2",
+        backgroundColor = habitColor,
         color = "#ffffff",
         fontSize = state.editingHabit == habitIndex and nil or 14
       }
@@ -90,7 +92,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
 
       UI.Button {
         text = "<",
-        backgroundColor = "#4a90e2",
+        backgroundColor = habitColor,
         color = "#ffffff",
         fontSize = 18,
         width = "40px",
@@ -108,7 +110,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
 
       UI.Button {
         text = ">",
-        backgroundColor = "#4a90e2",
+        backgroundColor = habitColor,
         color = "#ffffff",
         fontSize = 18,
         width = "40px",
@@ -119,6 +121,9 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
         end
       }
     },
+
+    -- Color picker
+    ColorPicker.buildColorPicker(UI, state, habitIndex, updateHabitColor, habit),
 
     -- Week day headers
     UI.Row {

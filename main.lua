@@ -2,6 +2,7 @@
 
 local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
+local ColorPalette = require("components.color_palette")
 
 -- Load storage plugin (direct JSON files)
 local Storage = require("storage")
@@ -25,9 +26,9 @@ local function loadHabits()
   local today = getCurrentDate()
 
   local defaultHabits = {
-    {name = "Meditation", createdAt = today, completions = {}},
-    {name = "Exercise", createdAt = today, completions = {}},
-    {name = "Reading", createdAt = today, completions = {}}
+    {name = "Meditation", createdAt = today, completions = {}, color = "#9b59b6"},
+    {name = "Exercise", createdAt = today, completions = {}, color = "#27ae60"},
+    {name = "Reading", createdAt = today, completions = {}, color = "#5c6bc0"}
   }
 
   -- Load from collection storage
@@ -37,6 +38,13 @@ local function loadHabits()
   for i, habit in ipairs(habits) do
     if not habit.completions or type(habit.completions) ~= "table" then
       habit.completions = {}
+    end
+  end
+
+  -- Ensure color property exists for migration
+  for i, habit in ipairs(habits) do
+    if not habit.color or habit.color == "" then
+      habit.color = ColorPalette.DEFAULT_COLOR
     end
   end
 
@@ -89,7 +97,8 @@ local function addNewHabit()
   table.insert(state.habits, {
     name = "New Habit",
     createdAt = getCurrentDate(),
-    completions = {}
+    completions = {},
+    color = ColorPalette.DEFAULT_COLOR
   })
   state.selectedHabit = #state.habits
   saveHabits(state.habits)
@@ -123,6 +132,13 @@ local function updateHabitName(habitIndex, newName)
   end
 end
 
+local function updateHabitColor(habitIndex, newColor)
+  if state.habits[habitIndex] then
+    state.habits[habitIndex].color = newColor
+    saveHabits(state.habits)
+  end
+end
+
 local function navigateMonth(offset)
   local newMonth = state.displayedMonth.month + offset
   local newYear = state.displayedMonth.year
@@ -151,7 +167,7 @@ local Tabs = require("components.tabs")
 
 local function buildUI()
   local selected = state.selectedHabit
-  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits)
+  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits, updateHabitColor)
 
   return UI.Column({
     width = "800px",
