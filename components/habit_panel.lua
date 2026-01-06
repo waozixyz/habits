@@ -12,7 +12,71 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
   local habitColor = habit.color or "#4a90e2"
   local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
 
-  -- Build calendar grid rows
+  -- IMPORTANT: Build components in the SAME ORDER they appear in the return statement
+  -- This ensures handler registration order matches KIR tree order
+
+  -- 1. Title row components (Edit button)
+  local editButton = UI.Button {
+    text = state.editingHabit == habitIndex and "Done" or "Edit",
+    onClick = function()
+      print("[Habits] Edit button clicked for habit " .. habitIndex)
+      if state.editingHabit == habitIndex then
+        updateHabitName(habitIndex, editingState.name)
+        state.editingHabit = 0
+      else
+        editingState.name = habit.name
+        state.editingHabit = habitIndex
+      end
+    end,
+    backgroundColor = habitColor,
+    color = "#ffffff",
+    fontSize = state.editingHabit == habitIndex and nil or 14
+  }
+
+  -- 2. Navigation buttons (< and >)
+  local prevButton = UI.Button {
+    text = "<",
+    backgroundColor = habitColor,
+    color = "#ffffff",
+    fontSize = 18,
+    width = "40px",
+    height = "40px",
+    onClick = function()
+      print("[Habits] Prev month button clicked")
+      navigateMonth(-1)
+    end
+  }
+
+  local nextButton = UI.Button {
+    text = ">",
+    backgroundColor = habitColor,
+    color = "#ffffff",
+    fontSize = 18,
+    width = "40px",
+    height = "40px",
+    disabled = isCurrentMonth(state.displayedMonth.year, state.displayedMonth.month),
+    onClick = function()
+      print("[Habits] Next month button clicked")
+      navigateMonth(1)
+    end
+  }
+
+  -- 3. Color picker (has its own buttons)
+  local colorPicker = ColorPicker.buildColorPicker(UI, state, habitIndex, updateHabitColor, habit)
+
+  -- 4. Week day headers (disabled buttons, but still need to be in order)
+  local weekHeaders = UI.mapArray({"M", "T", "W", "T", "F", "S", "S"}, function(dayName)
+    return UI.Button {
+      text = dayName,
+      width = "40px",
+      height = "20px",
+      backgroundColor = "#2d2d2d",
+      fontSize = 10,
+      disabled = true
+    }
+  end)
+
+  -- 5. Calendar grid rows (LAST - 42 buttons per panel)
   local calendarRows = {}
   for weekRow = 0, 5 do
     local rowChildren = {}
@@ -30,6 +94,11 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
         color = style.color,
         borderColor = style.borderColor,
         disabled = Calendar.isDateInFuture(day.date) or not day.isCurrentMonth,
+        -- Data attributes for reactive DOM updates
+        data = {
+          habit = tostring(habitIndex),
+          date = day.date
+        },
         onClick = function()
           toggleHabitCompletion(habitIndex, day.date)
         end
@@ -41,7 +110,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
     })
   end
 
-  -- Build main panel
+  -- Build main panel using pre-built components
   return UI.TabPanel {
     backgroundColor = "#1a1a1a",
     padding = 30,
@@ -52,9 +121,9 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
       gap = 10,
 
       state.editingHabit == habitIndex and UI.Input {
-        value = editingState.name,  -- Use non-reactive temp state
+        value = editingState.name,
         onTextChange = function(newName)
-          editingState.name = newName  -- Update non-reactive state (no rebuild)
+          editingState.name = newName
         end,
         fontSize = 24,
         color = "#ffffff",
@@ -66,23 +135,7 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
         fontSize = 24
       },
 
-      UI.Button {
-        text = state.editingHabit == habitIndex and "Done" or "Edit",
-        onClick = function()
-          if state.editingHabit == habitIndex then
-            -- Done: save the edited name
-            updateHabitName(habitIndex, editingState.name)
-            state.editingHabit = 0
-          else
-            -- Edit: copy current name to editing state
-            editingState.name = habit.name
-            state.editingHabit = habitIndex
-          end
-        end,
-        backgroundColor = habitColor,
-        color = "#ffffff",
-        fontSize = state.editingHabit == habitIndex and nil or 14
-      }
+      editButton
     },
 
     -- Month navigation
@@ -90,54 +143,25 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
       alignItems = "center",
       justifyContent = "space-between",
 
-      UI.Button {
-        text = "<",
-        backgroundColor = habitColor,
-        color = "#ffffff",
-        fontSize = 18,
-        width = "40px",
-        height = "40px",
-        onClick = function()
-          navigateMonth(-1)
-        end
-      },
+      prevButton,
 
       UI.Text {
         text = os.date("%B %Y", os.time({year=state.displayedMonth.year, month=state.displayedMonth.month, day=1})),
         color = "#ffffff",
-        fontSize = 24
+        fontSize = 24,
+        elementId = "month-display-" .. habitIndex
       },
 
-      UI.Button {
-        text = ">",
-        backgroundColor = habitColor,
-        color = "#ffffff",
-        fontSize = 18,
-        width = "40px",
-        height = "40px",
-        disabled = isCurrentMonth(state.displayedMonth.year, state.displayedMonth.month),
-        onClick = function()
-          navigateMonth(1)
-        end
-      }
+      nextButton
     },
 
     -- Color picker
-    ColorPicker.buildColorPicker(UI, state, habitIndex, updateHabitColor, habit),
+    colorPicker,
 
     -- Week day headers
     UI.Row {
       gap = 5,
-      unpack(UI.mapArray({"M", "T", "W", "T", "F", "S", "S"}, function(dayName)
-        return UI.Button {
-          text = dayName,
-          width = "40px",
-          height = "20px",
-          backgroundColor = "#2d2d2d",
-          fontSize = 10,
-          disabled = true
-        }
-      end))
+      unpack(weekHeaders)
     },
 
     -- Calendar grid

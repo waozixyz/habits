@@ -65,15 +65,46 @@ end
 -- ============================================================================
 -- Reactive State - Clean and Simple!
 -- ============================================================================
+local habitsData = loadHabits()
+
+-- Load saved displayed month (for web persistence across refreshes)
+-- Bug 4 fix: Use Runtime.getCurrentDate() for web (Fengari os.date fails)
+local initialYear, initialMonth
+local isWeb, js = pcall(require, "js")
+if isWeb and js then
+  -- Web mode: use Runtime which has JS Date helpers
+  local Runtime = require("kryon.runtime_web")
+  local now = Runtime.getCurrentDate()
+  initialYear = now.year
+  initialMonth = now.month
+else
+  -- Desktop mode: os.date works fine
+  initialYear = tonumber(os.date("%Y"))
+  initialMonth = tonumber(os.date("%m"))
+end
+
+if Storage.get then  -- Web storage has get/set methods
+  local savedMonth = Storage.get("displayedMonth")
+  if savedMonth and type(savedMonth) == "string" then
+    local year, month = string.match(savedMonth, "^(%d+)%-(%d+)$")
+    if year and month then
+      local y, m = tonumber(year), tonumber(month)
+      if y and y > 2000 and m and m >= 1 and m <= 12 then
+        initialYear = y
+        initialMonth = m
+      end
+    end
+  end
+end
 
 local state = Reactive.reactive({
-  habits = loadHabits(),
+  habits = habitsData,
   selectedHabit = 1,
   editingHabit = 0,
   showColorPicker = false,  -- Controls color picker modal visibility
   displayedMonth = {
-    year = tonumber(os.date("%Y")),
-    month = tonumber(os.date("%m"))
+    year = initialYear,
+    month = initialMonth
   }
 })
 
@@ -81,15 +112,6 @@ local state = Reactive.reactive({
 local editingState = {
   name = ""
 }
-
-print("[STATE] Created reactive state")
-print("[STATE] Number of habits:", #state.habits)
-for i, h in ipairs(state.habits) do
-  print("[STATE] Habit " .. i .. " properties:")
-  for k, v in pairs(h) do
-    print("[STATE]   " .. k .. " = " .. tostring(v))
-  end
-end
 
 -- ============================================================================
 -- Event Handlers - Dramatically Simplified!
@@ -111,7 +133,8 @@ local function addNewHabit()
   saveHabits(state.habits)
 end
 
-local function toggleHabitCompletion(habitIndex, dateStr)
+-- Global function for web event handlers
+_G.toggleHabitCompletion = function(habitIndex, dateStr)
   if not dateStr or dateStr == "" or Calendar.isDateInFuture(dateStr) then
     return
   end
@@ -120,13 +143,8 @@ local function toggleHabitCompletion(habitIndex, dateStr)
   local oldValue = completions[dateStr] or false
   local newValue = not oldValue
 
-  print(string.format("⚡ Toggling habit %d, date %s: %s -> %s", habitIndex, dateStr, tostring(oldValue), tostring(newValue)))
-
   -- Modify the reactive state
   completions[dateStr] = newValue
-
-  -- Verify the write happened
-  print(string.format("✓ After write: completions[%s] = %s", dateStr, tostring(completions[dateStr])))
 
   -- Save to disk
   saveHabits(state.habits)
@@ -147,6 +165,7 @@ local function updateHabitColor(habitIndex, newColor)
 end
 
 local function navigateMonth(offset)
+  print("[Habits] navigateMonth called with offset: " .. tostring(offset))
   local newMonth = state.displayedMonth.month + offset
   local newYear = state.displayedMonth.year
 
@@ -160,6 +179,17 @@ local function navigateMonth(offset)
 
   state.displayedMonth.month = newMonth
   state.displayedMonth.year = newYear
+
+  print("[Habits] New month: " .. newYear .. "-" .. newMonth)
+
+  -- For web: persist month (reactive effects will update DOM)
+  if Storage.set then
+    print("[Habits] Calling Storage.set for month persistence")
+    Storage.set("displayedMonth", newYear .. "-" .. newMonth)
+    -- NOTE: No forceRefresh() - reactive effects handle DOM updates
+  else
+    print("[Habits] Storage.set not available (desktop mode)")
+  end
 end
 
 -- ============================================================================
@@ -214,5 +244,68 @@ local app = runtime.createReactiveApp({
     title = "Habits"
   }
 })
+
+-- ============================================================================
+-- Web Reactivity Setup
+-- When running in browser (Fengari), set up reactive DOM updates
+-- ============================================================================
+
+local isWeb, js = pcall(require, "js")
+if isWeb and js then
+  print("[Habits] Web mode detected - setting up reactive bindings")
+  local document = js.global.document
+
+  -- Set up reactive effect for calendar cell updates
+  -- When habit completions change, update the corresponding DOM cells
+  Reactive.effect(function()
+    print("[Habits] Reactive effect running: updating calendar cells")
+
+    -- Iterate all habits and their completions
+    for i, habit in ipairs(state.habits) do
+      local habitColor = habit.color or "#4a90e2"
+
+      -- Update all cells for this habit
+      if habit.completions then
+        for date, completed in pairs(habit.completions) do
+          -- Find the button with matching data attributes
+          local selector = string.format('[data-habit="%d"][data-date="%s"]', i, date)
+          local elements = document:querySelectorAll(selector)
+
+          for j = 0, elements.length - 1 do
+            local el = elements[j]
+            if completed then
+              el.style.backgroundColor = habitColor
+              el.style.color = "#ffffff"
+            else
+              el.style.backgroundColor = "#3d3d3d"
+              el.style.color = "#888888"
+            end
+          end
+        end
+      end
+    end
+  end)
+
+  -- Set up reactive effect for month display updates
+  -- Bug 4 fix: Use Runtime.formatMonthYear instead of os.date (Fengari fails)
+  local Runtime = require("kryon.runtime_web")
+  Reactive.effect(function()
+    print("[Habits] Reactive effect running: updating month displays")
+
+    local monthText = Runtime.formatMonthYear(state.displayedMonth.year, state.displayedMonth.month)
+
+    -- Update all month displays (one per habit panel)
+    for i = 1, #state.habits do
+      local elementId = "month-display-" .. i
+      local element = document:getElementById(elementId)
+      if element then
+        element.textContent = monthText
+        print("[Habits] Updated month display: " .. elementId .. " to " .. monthText)
+      end
+    end
+  end)
+
+  print("[Habits] Reactive bindings initialized")
+end
 
 return app

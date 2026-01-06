@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Habits
+Comment=Habit tracking application
+Exec=habits
+Icon=habits
+Categories=Utility;GTK;
+Terminal=false
+StartupNotify=true
+StartupWMClass=habits

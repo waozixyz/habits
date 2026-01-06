@@ -23,10 +23,7 @@ local function buildColorPicker(UI, state, habitIndex, updateHabitColor, habit)
     })
   end
 
-  return UI.Column {
-    gap = 8,
-    marginTop = 20,
-
+  return UI.Container {
     -- Single button showing current color
     UI.Row {
       alignItems = "center",

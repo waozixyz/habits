@@ -5,7 +5,7 @@ description = "Habits Tracker - A simple habit tracking application"
 
 [build]
 entry = "main.lua"
-targets = ["desktop"]
+targets = ["desktop", "web"]
 frontend = "lua"
 output_dir = "dist"
 
@@ -18,10 +18,17 @@ resizable = true
 [desktop]
 renderer = "sdl3"
 
+[web]
+renderer = "static"
+generate_separate_files = true
+inline_styles = false
+
+[dev]
+hot_reload = true
+port = 3000
+auto_open = true
+
 [plugins]
 # Kryon storage plugin for localStorage-like persistence
-storage = { path = "../kryon-storage" }
+storage = { path = "../../KryonLabs/kryon-storage" }
 
-[dependencies]
-# Kryon DSL and reactive system
-kryon = { path = "./kryon" }
