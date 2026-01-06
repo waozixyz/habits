@@ -93,6 +93,24 @@ local function generateCalendarData(habit, year, month, themeColor)
   return days
 end
 
+-- Generate calendar data structured as rows for ForEach rendering
+-- Returns an array of 6 rows, each containing 7 days
+local function generateCalendarRows(habit, year, month, themeColor)
+  local flatDays = generateCalendarData(habit, year, month, themeColor)
+  local rows = {}
+
+  for weekRow = 0, 5 do
+    local rowDays = {}
+    for dayCol = 0, 6 do
+      local dayIndex = weekRow * 7 + dayCol + 1
+      table.insert(rowDays, flatDays[dayIndex])
+    end
+    table.insert(rows, rowDays)
+  end
+
+  return rows
+end
+
 -- Get styling for a calendar day cell
 local function getDayStyle(day, themeColor)
   local style = {
@@ -113,6 +131,7 @@ end
 
 return {
   generateCalendarData = generateCalendarData,
+  generateCalendarRows = generateCalendarRows,
   getDayStyle = getDayStyle,
   isDateInFuture = isDateInFuture
 }

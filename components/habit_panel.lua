@@ -10,7 +10,6 @@ end
 
 local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex, updateHabitColor)
   local habitColor = habit.color or "#4a90e2"
-  local calendarDays = Calendar.generateCalendarData(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
 
   -- IMPORTANT: Build components in the SAME ORDER they appear in the return statement
   -- This ensures handler registration order matches KIR tree order
@@ -76,39 +75,46 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
     }
   end)
 
-  -- 5. Calendar grid rows (LAST - 42 buttons per panel)
-  local calendarRows = {}
-  for weekRow = 0, 5 do
-    local rowChildren = {}
-    for dayCol = 0, 6 do
-      local dayIndex = weekRow * 7 + dayCol + 1
-      local day = calendarDays[dayIndex]
-      local style = Calendar.getDayStyle(day, habitColor)
+  -- 5. Calendar grid using ForEach for reactive re-rendering
+  -- Get row-structured data for ForEach
+  local calendarRows = Calendar.generateCalendarRows(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
 
-      table.insert(rowChildren, UI.Button {
-        width = "40px",
-        height = "40px",
-        fontSize = 12,
-        text = day.isCurrentMonth and tostring(day.dayNumber) or "",
-        backgroundColor = style.backgroundColor,
-        color = style.color,
-        borderColor = style.borderColor,
-        disabled = Calendar.isDateInFuture(day.date) or not day.isCurrentMonth,
-        -- Data attributes for reactive DOM updates
-        data = {
-          habit = tostring(habitIndex),
-          date = day.date
-        },
-        onClick = function()
-          toggleHabitCompletion(habitIndex, day.date)
-        end
-      })
+  -- Use ForEach to render each week row
+  local calendarGrid = UI.ForEach {
+    each = calendarRows,
+    as = "weekRow",
+    render = function(weekRow, rowIndex)
+      -- Use nested ForEach for days in each week
+      return UI.Row {
+        gap = 5,
+        UI.ForEach {
+          each = weekRow,
+          as = "day",
+          render = function(day, dayIndex)
+            local style = Calendar.getDayStyle(day, habitColor)
+            return UI.Button {
+              width = "40px",
+              height = "40px",
+              fontSize = 12,
+              text = day.isCurrentMonth and tostring(day.dayNumber) or "",
+              backgroundColor = style.backgroundColor,
+              color = style.color,
+              borderColor = style.borderColor,
+              disabled = Calendar.isDateInFuture(day.date) or not day.isCurrentMonth,
+              -- Data attributes for reactive DOM updates
+              data = {
+                habit = tostring(habitIndex),
+                date = day.date
+              },
+              onClick = function()
+                toggleHabitCompletion(habitIndex, day.date)
+              end
+            }
+          end
+        }
+      }
     end
-    table.insert(calendarRows, UI.Row {
-      gap = 5,
-      unpack(rowChildren)
-    })
-  end
+  }
 
   -- Build main panel using pre-built components
   return UI.TabPanel {
@@ -164,8 +170,8 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
       unpack(weekHeaders)
     },
 
-    -- Calendar grid
-    unpack(calendarRows)
+    -- Calendar grid (ForEach component)
+    calendarGrid
   }
 end
 
