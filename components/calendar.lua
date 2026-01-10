@@ -59,7 +59,8 @@ local function generateCalendarData(habit, year, month, themeColor)
       date = "",
       isCurrentMonth = false,
       isToday = false,
-      isCompleted = false
+      isCompleted = false,
+      themeColor = themeColor or "#6b5b95"
     })
   end
 
@@ -74,7 +75,8 @@ local function generateCalendarData(habit, year, month, themeColor)
       date = dateStr,
       isCurrentMonth = true,
       isToday = isToday,
-      isCompleted = isCompleted
+      isCompleted = isCompleted,
+      themeColor = themeColor or "#6b5b95"
     })
   end
 
@@ -86,7 +88,8 @@ local function generateCalendarData(habit, year, month, themeColor)
       date = "",
       isCurrentMonth = false,
       isToday = false,
-      isCompleted = false
+      isCompleted = false,
+      themeColor = themeColor or "#6b5b95"
     })
   end
 

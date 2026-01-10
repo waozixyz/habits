@@ -106,8 +106,10 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
                 habit = tostring(habitIndex),
                 date = day.date
               },
-              onClick = function()
-                toggleHabitCompletion(habitIndex, day.date)
+              onClick = function(eventData)
+                -- Use event data from ForEach expansion if available (contains actual date)
+                local dateToToggle = (eventData and eventData.date) or day.date
+                toggleHabitCompletion(habitIndex, dateToToggle)
               end
             }
           end
