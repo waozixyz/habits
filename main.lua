@@ -208,7 +208,7 @@ local function buildUI()
 
   return UI.Column({
     width = "800px",
-    height = "600px",
+    height = "750px",
     background = "#1a1a1a",
     windowTitle = "Habits",
     children = {
@@ -240,7 +240,7 @@ local app = runtime.createReactiveApp({
   root = buildUI,  -- Just pass the function - automatic reactivity!
   window = {
     width = 800,
-    height = 600,
+    height = 750,
     title = "Habits"
   }
 })
