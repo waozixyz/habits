@@ -15,13 +15,13 @@ width = 1200
 height = 800
 resizable = true
 
-[desktop]
-renderer = "sdl3"
-
 [web]
 renderer = "static"
 generate_separate_files = true
 inline_styles = false
+
+[install]
+mode = "copy" 
 
 [dev]
 hot_reload = true
@@ -29,6 +29,4 @@ port = 3000
 auto_open = true
 
 [plugins]
-# Kryon storage plugin for localStorage-like persistence
-storage = { path = "../../KryonLabs/kryon-storage" }
-
+storage = { path = "../../KryonLabs/kryon-plugins/storage" }
