@@ -8,7 +8,7 @@ local function isCurrentMonth(displayedYear, displayedMonth)
   return displayedYear == currentYear and displayedMonth == currentMonth
 end
 
-local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex, updateHabitColor)
+local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex, updateHabitColor, deleteHabit)
   local habitColor = habit.color or "#4a90e2"
 
   -- IMPORTANT: Build components in the SAME ORDER they appear in the return statement
@@ -31,6 +31,18 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
     color = "#ffffff",
     fontSize = state.editingHabit == habitIndex and nil or 14
   }
+
+  -- Delete button (only show when editing)
+  local deleteButton = state.editingHabit == habitIndex and UI.Button {
+    text = "Delete",
+    onClick = function()
+      print("[Habits] Delete button clicked for habit " .. habitIndex)
+      deleteHabit(habitIndex)
+    end,
+    backgroundColor = "#e74c3c",
+    color = "#ffffff",
+    fontSize = 14
+  } or nil
 
   -- 2. Navigation buttons (< and >)
   local prevButton = UI.Button {
@@ -143,7 +155,9 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
         fontSize = 24
       },
 
-      editButton
+      editButton,
+
+      deleteButton
     },
 
     -- Month navigation

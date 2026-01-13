@@ -164,6 +164,30 @@ local function updateHabitColor(habitIndex, newColor)
   end
 end
 
+local function deleteHabit(habitIndex)
+  if state.habits[habitIndex] then
+    -- Remove from reactive array by shifting elements down
+    for i = habitIndex, #state.habits - 1 do
+      state.habits[i] = state.habits[i + 1]
+    end
+    state.habits[#state.habits] = nil
+
+    -- Adjust selected habit if needed
+    if state.selectedHabit > #state.habits then
+      state.selectedHabit = math.max(1, #state.habits)
+    elseif state.selectedHabit == habitIndex and #state.habits > 0 then
+      state.selectedHabit = math.max(1, habitIndex - 1)
+    end
+
+    -- Clear editing state if deleting the habit being edited
+    if state.editingHabit == habitIndex then
+      state.editingHabit = 0
+    end
+
+    saveHabits(state.habits)
+  end
+end
+
 local function navigateMonth(offset)
   print("[Habits] navigateMonth called with offset: " .. tostring(offset))
   local newMonth = state.displayedMonth.month + offset
@@ -204,7 +228,7 @@ local Tabs = require("components.tabs")
 
 local function buildUI()
   local selected = state.selectedHabit
-  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits, updateHabitColor)
+  local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits, updateHabitColor, deleteHabit)
 
   return UI.Column({
     width = "800px",

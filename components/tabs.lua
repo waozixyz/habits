@@ -1,7 +1,7 @@
 -- Tab bar and panels builder
 local HabitPanel = require("components.habit_panel")
 
-local function buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, habitsList, updateHabitColor)
+local function buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, habitsList, updateHabitColor, deleteHabit)
   -- Map habits to tabs
   local tabs = UI.mapArray(habitsList, function(habit, i)
     local habitColor = habit.color or "#4a90e2"
@@ -28,7 +28,7 @@ local function buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion
   -- Map habits to panels using manual loop
   local panels = {}
   for i, habit in ipairs(habitsList) do
-    table.insert(panels, HabitPanel.buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, i, updateHabitColor))
+    table.insert(panels, HabitPanel.buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, i, updateHabitColor, deleteHabit))
   end
 
   return tabs, panels
