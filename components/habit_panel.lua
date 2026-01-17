@@ -1,11 +1,12 @@
 -- Individual habit panel component
+-- Uses DateTime plugin for platform-independent date operations
 local Calendar = require("components.calendar")
 local ColorPicker = require("components.color_picker")
+local DateTime = require("datetime")
 
 local function isCurrentMonth(displayedYear, displayedMonth)
-  local currentYear = tonumber(os.date("%Y"))
-  local currentMonth = tonumber(os.date("%m"))
-  return displayedYear == currentYear and displayedMonth == currentMonth
+  local now = DateTime.now()
+  return displayedYear == now.year and displayedMonth == now.month
 end
 
 local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, habit, habitIndex, updateHabitColor, deleteHabit)
@@ -113,11 +114,6 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
               color = style.color,
               borderColor = style.borderColor,
               disabled = Calendar.isDateInFuture(day.date) or not day.isCurrentMonth,
-              -- Data attributes for reactive DOM updates
-              data = {
-                habit = tostring(habitIndex),
-                date = day.date
-              },
               onClick = function(eventData)
                 -- Use event data from ForEach expansion if available (contains actual date)
                 local dateToToggle = (eventData and eventData.date) or day.date
@@ -168,10 +164,9 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
       prevButton,
 
       UI.Text {
-        text = os.date("%B %Y", os.time({year=state.displayedMonth.year, month=state.displayedMonth.month, day=1})),
+        text = DateTime.format({year=state.displayedMonth.year, month=state.displayedMonth.month, day=1}, "%B %Y"),
         color = "#ffffff",
-        fontSize = 24,
-        elementId = "month-display-" .. habitIndex
+        fontSize = 24
       },
 
       nextButton

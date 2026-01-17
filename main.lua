@@ -1,11 +1,14 @@
 -- Habits Tracker - Clean Automatic Reactivity Version
+-- Platform-agnostic: uses DateTime plugin for all date/time operations
 
 local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
 local ColorPalette = require("components.color_palette")
+local DateTime = require("datetime")
 
--- Seed random number generator
-math.randomseed(os.time())
+-- Seed random number generator using DateTime
+local now = DateTime.now()
+math.randomseed(now.hour * 3600 + now.minute * 60 + now.second)
 
 -- Load storage plugin (direct JSON files)
 local Storage = require("storage")
@@ -18,7 +21,7 @@ Storage.init("habits")
 -- ============================================================================
 
 local function getCurrentDate()
-  return os.date("%Y-%m-%d")
+  return DateTime.format(DateTime.now(), "%Y-%m-%d")
 end
 
 -- ============================================================================
@@ -55,11 +58,8 @@ local function loadHabits()
 end
 
 local function saveHabits(habits)
-  -- Use Reactive.toRaw to get the underlying data structure
-  local rawHabits = Reactive.toRaw(habits)
-
-  -- Save collection (auto-saves to disk)
-  Storage.Collections.save("habits", rawHabits)
+  -- Save collection (storage plugin handles reactive unwrapping internally)
+  Storage.Collections.save("habits", habits)
 end
 
 -- ============================================================================
@@ -67,21 +67,10 @@ end
 -- ============================================================================
 local habitsData = loadHabits()
 
--- Load saved displayed month (for web persistence across refreshes)
--- Bug 4 fix: Use Runtime.getCurrentDate() for web (Fengari os.date fails)
-local initialYear, initialMonth
-local isWeb, js = pcall(require, "js")
-if isWeb and js then
-  -- Web mode: use Runtime which has JS Date helpers
-  local Runtime = require("kryon.runtime_web")
-  local now = Runtime.getCurrentDate()
-  initialYear = now.year
-  initialMonth = now.month
-else
-  -- Desktop mode: os.date works fine
-  initialYear = tonumber(os.date("%Y"))
-  initialMonth = tonumber(os.date("%m"))
-end
+-- Get current year/month from DateTime plugin (platform-independent)
+local currentDateTime = DateTime.now()
+local initialYear = currentDateTime.year
+local initialMonth = currentDateTime.month
 
 if Storage.get then  -- Web storage has get/set methods
   local savedMonth = Storage.get("displayedMonth")
@@ -133,8 +122,8 @@ local function addNewHabit()
   saveHabits(state.habits)
 end
 
--- Global function for web event handlers
-_G.toggleHabitCompletion = function(habitIndex, dateStr)
+-- Toggle habit completion for a date
+local function toggleHabitCompletion(habitIndex, dateStr)
   if not dateStr or dateStr == "" or Calendar.isDateInFuture(dateStr) then
     return
   end
@@ -206,11 +195,9 @@ local function navigateMonth(offset)
 
   print("[Habits] New month: " .. newYear .. "-" .. newMonth)
 
-  -- For web: persist month (reactive effects will update DOM)
   if Storage.set then
     print("[Habits] Calling Storage.set for month persistence")
     Storage.set("displayedMonth", newYear .. "-" .. newMonth)
-    -- NOTE: No forceRefresh() - reactive effects handle DOM updates
   else
     print("[Habits] Storage.set not available (desktop mode)")
   end
@@ -268,68 +255,5 @@ local app = runtime.createReactiveApp({
     title = "Habits"
   }
 })
-
--- ============================================================================
--- Web Reactivity Setup
--- When running in browser (Fengari), set up reactive DOM updates
--- ============================================================================
-
-local isWeb, js = pcall(require, "js")
-if isWeb and js then
-  print("[Habits] Web mode detected - setting up reactive bindings")
-  local document = js.global.document
-
-  -- Set up reactive effect for calendar cell updates
-  -- When habit completions change, update the corresponding DOM cells
-  Reactive.effect(function()
-    print("[Habits] Reactive effect running: updating calendar cells")
-
-    -- Iterate all habits and their completions
-    for i, habit in ipairs(state.habits) do
-      local habitColor = habit.color or "#4a90e2"
-
-      -- Update all cells for this habit
-      if habit.completions then
-        for date, completed in pairs(habit.completions) do
-          -- Find the button with matching data attributes
-          local selector = string.format('[data-habit="%d"][data-date="%s"]', i, date)
-          local elements = document:querySelectorAll(selector)
-
-          for j = 0, elements.length - 1 do
-            local el = elements[j]
-            if completed then
-              el.style.backgroundColor = habitColor
-              el.style.color = "#ffffff"
-            else
-              el.style.backgroundColor = "#3d3d3d"
-              el.style.color = "#888888"
-            end
-          end
-        end
-      end
-    end
-  end)
-
-  -- Set up reactive effect for month display updates
-  -- Bug 4 fix: Use Runtime.formatMonthYear instead of os.date (Fengari fails)
-  local Runtime = require("kryon.runtime_web")
-  Reactive.effect(function()
-    print("[Habits] Reactive effect running: updating month displays")
-
-    local monthText = Runtime.formatMonthYear(state.displayedMonth.year, state.displayedMonth.month)
-
-    -- Update all month displays (one per habit panel)
-    for i = 1, #state.habits do
-      local elementId = "month-display-" .. i
-      local element = document:getElementById(elementId)
-      if element then
-        element.textContent = monthText
-        print("[Habits] Updated month display: " .. elementId .. " to " .. monthText)
-      end
-    end
-  end)
-
-  print("[Habits] Reactive bindings initialized")
-end
 
 return app

@@ -30,3 +30,4 @@ auto_open = true
 
 [plugins]
 storage = { path = "../../KryonLabs/kryon-plugins/storage" }
+datetime = { path = "../../KryonLabs/kryon-plugins/datetime" }

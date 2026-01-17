@@ -1,34 +1,29 @@
 -- Calendar data generation and styling utilities
+-- Uses DateTime plugin for platform-independent date operations
+
+local DateTime = require("datetime")
 
 local function getCurrentDate()
-  return os.date("%Y-%m-%d")
+  return DateTime.format(DateTime.now(), "%Y-%m-%d")
 end
 
 local function getDaysInMonth(year, month)
-  local days = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
-  if month == 2 and (year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)) then
-    return 29
-  end
-  return days[month]
+  return DateTime.daysInMonth(year, month)
 end
 
 local function getWeekday(year, month, day)
-  local t = os.time({year=year, month=month, day=day})
-  return tonumber(os.date("%w", t))
+  return DateTime.weekday(year, month, day)
 end
 
 local function makeDate(year, month, day)
-  return os.date("%Y-%m-%d", os.time({year=year, month=month, day=day}))
+  return DateTime.makeDate(year, month, day)
 end
 
 local function isDateInFuture(dateStr)
   if not dateStr or dateStr == "" then return false end
   local year, month, day = dateStr:match("(%d+)-(%d+)-(%d+)")
   if not year then return false end
-
-  local targetTime = os.time({year=tonumber(year), month=tonumber(month), day=tonumber(day)})
-  local today = os.time({year=os.date("%Y"), month=os.date("%m"), day=os.date("%d")})
-  return targetTime > today
+  return DateTime.isFuture(tonumber(year), tonumber(month), tonumber(day))
 end
 
 -- Generate calendar data for a given habit and month

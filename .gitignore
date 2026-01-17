@@ -38,3 +38,6 @@ dist/
 
 .kryon
 temp
+scripts
+plan
+debug_output
