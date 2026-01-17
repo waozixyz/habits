@@ -89,12 +89,11 @@ local function buildHabitPanel(UI, state, editingState, toggleHabitCompletion, u
   end)
 
   -- 5. Calendar grid using ForEach for reactive re-rendering
-  -- Get row-structured data for ForEach
-  local calendarRows = Calendar.generateCalendarRows(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
-
-  -- Use ForEach to render each week row
+  -- Use provider function so web codegen can capture the expression for runtime calls
   local calendarGrid = UI.ForEach {
-    each = calendarRows,
+    provider = function()
+      return Calendar.generateCalendarRows(habit, state.displayedMonth.year, state.displayedMonth.month, habitColor)
+    end,
     as = "weekRow",
     render = function(weekRow, rowIndex)
       -- Use nested ForEach for days in each week
