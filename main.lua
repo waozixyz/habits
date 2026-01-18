@@ -1,7 +1,5 @@
--- Habits Tracker - Clean Automatic Reactivity Version
--- Platform-agnostic: uses DateTime plugin for all date/time operations
+-- Habits Tracker
 
-local Reactive = require("kryon.reactive")
 local UI = require("kryon.dsl")
 local ColorPalette = require("components.color_palette")
 local DateTime = require("datetime")
@@ -10,15 +8,8 @@ local DateTime = require("datetime")
 local now = DateTime.now()
 math.randomseed(now.hour * 3600 + now.minute * 60 + now.second)
 
--- Load storage plugin (direct JSON files)
-local Storage = require("storage")
-
--- Initialize storage once - app name will be used to construct ~/.local/share/habits
+local Storage = require("kryon.plugins.storage")
 Storage.init("habits")
-
--- ============================================================================
--- Helper Functions
--- ============================================================================
 
 local function getCurrentDate()
   return DateTime.format(DateTime.now(), "%Y-%m-%d")
@@ -27,44 +18,32 @@ end
 -- ============================================================================
 -- Persistence
 -- ============================================================================
-
 local function loadHabits()
+  local habits = Storage.Collections.load("habits", {})
   local today = getCurrentDate()
 
-  local defaultHabits = {
-    {name = "Meditation", createdAt = today, completions = {}, color = "#9b59b6"},
-    {name = "Exercise", createdAt = today, completions = {}, color = "#27ae60"},
-    {name = "Reading", createdAt = today, completions = {}, color = "#5c6bc0"}
-  }
-
-  -- Load from collection storage
-  local habits = Storage.Collections.load("habits", defaultHabits)
-
-  -- Ensure completions tables exist
-  for i, habit in ipairs(habits) do
-    if not habit.completions or type(habit.completions) ~= "table" then
-      habit.completions = {}
-    end
+  -- Single pass for migration and defaults
+  for _, habit in ipairs(habits) do
+    habit.completions = type(habit.completions) == "table" and habit.completions or {}
+    habit.color = (habit.color and habit.color ~= "") and habit.color or ColorPalette.DEFAULT_COLOR
+    habit.createdAt = habit.createdAt or today
   end
 
-  -- Ensure color property exists for migration
-  for i, habit in ipairs(habits) do
-    if not habit.color or habit.color == "" then
-      habit.color = ColorPalette.DEFAULT_COLOR
-    end
+  -- Fallback if storage is empty
+  if #habits == 0 then
+    return {
+      {name = "Meditation", createdAt = today, completions = {}, color = "#9b59b6"},
+      {name = "Exercise", createdAt = today, completions = {}, color = "#27ae60"}
+    }
   end
 
   return habits
 end
 
 local function saveHabits(habits)
-  -- Save collection (storage plugin handles reactive unwrapping internally)
   Storage.Collections.save("habits", habits)
 end
 
--- ============================================================================
--- Reactive State - Clean and Simple!
--- ============================================================================
 local habitsData = loadHabits()
 
 -- Get current year/month from DateTime plugin (platform-independent)
@@ -86,7 +65,7 @@ if Storage.get then  -- Web storage has get/set methods
   end
 end
 
-local state = Reactive.reactive({
+local state = {
   habits = habitsData,
   selectedHabit = 1,
   editingHabit = 0,
@@ -95,7 +74,7 @@ local state = Reactive.reactive({
     year = initialYear,
     month = initialMonth
   }
-})
+}
 
 -- Non-reactive editing state (doesn't trigger rebuilds on every keystroke)
 local editingState = {
@@ -109,8 +88,6 @@ local editingState = {
 local Calendar = require("components.calendar")
 
 local function addNewHabit()
-  -- Use direct index assignment to trigger reactive __newindex
-  -- (table.insert bypasses the metatable and doesn't update _target)
   local newIndex = #state.habits + 1
   state.habits[newIndex] = {
     name = "New Habit",
@@ -155,20 +132,14 @@ end
 
 local function deleteHabit(habitIndex)
   if state.habits[habitIndex] then
-    -- Remove from reactive array by shifting elements down
-    for i = habitIndex, #state.habits - 1 do
-      state.habits[i] = state.habits[i + 1]
-    end
-    state.habits[#state.habits] = nil
+    -- 1. Use Lua's built-in table removal (automatically shifts elements)
+    table.remove(state.habits, habitIndex)
 
-    -- Adjust selected habit if needed
-    if state.selectedHabit > #state.habits then
-      state.selectedHabit = math.max(1, #state.habits)
-    elseif state.selectedHabit == habitIndex and #state.habits > 0 then
-      state.selectedHabit = math.max(1, habitIndex - 1)
-    end
+    -- 2. Clamp the selection index so it doesn't point to a non-existent index
+    -- If we deleted the last item, move selection back by one.
+    state.selectedHabit = math.max(1, math.min(state.selectedHabit, #state.habits))
 
-    -- Clear editing state if deleting the habit being edited
+    -- 3. Reset editing state if necessary
     if state.editingHabit == habitIndex then
       state.editingHabit = 0
     end
@@ -178,41 +149,19 @@ local function deleteHabit(habitIndex)
 end
 
 local function navigateMonth(offset)
-  print("[Habits] navigateMonth called with offset: " .. tostring(offset))
-  local newMonth = state.displayedMonth.month + offset
-  local newYear = state.displayedMonth.year
-
-  if newMonth > 12 then
-    newMonth = 1
-    newYear = newYear + 1
-  elseif newMonth < 1 then
-    newMonth = 12
-    newYear = newYear - 1
-  end
-
-  state.displayedMonth.month = newMonth
-  state.displayedMonth.year = newYear
-
-  print("[Habits] New month: " .. newYear .. "-" .. newMonth)
+  -- Convert to a total number of months, apply offset, and convert back
+  local totalMonths = state.displayedMonth.year * 12 + (state.displayedMonth.month - 1) + offset
+  
+  state.displayedMonth.year = math.floor(totalMonths / 12)
+  state.displayedMonth.month = (totalMonths % 12) + 1
 
   if Storage.set then
-    print("[Habits] Calling Storage.set for month persistence")
-    Storage.set("displayedMonth", newYear .. "-" .. newMonth)
-  else
-    print("[Habits] Storage.set not available (desktop mode)")
+    Storage.set("displayedMonth", state.displayedMonth.year .. "-" .. state.displayedMonth.month)
   end
 end
 
--- ============================================================================
--- UI Components
--- ============================================================================
 
 local Tabs = require("components.tabs")
-
--- ============================================================================
--- Main UI - Automatically Reactive!
--- ============================================================================
-
 local function buildUI()
   local selected = state.selectedHabit
   local tabs, panels = Tabs.buildTabsAndPanels(UI, state, editingState, toggleHabitCompletion, updateHabitName, navigateMonth, addNewHabit, state.habits, updateHabitColor, deleteHabit)
