@@ -9,16 +9,11 @@ targets = ["desktop", "web"]
 frontend = "kry"
 output_dir = "dist"
 
-[window]
-title = "Habits Tracker"
-width = 1200
-height = 800
-resizable = true
+[targets.web]
+output = "html"
 
-[web]
-renderer = "static"
-generate_separate_files = true
-inline_styles = false
+[targets.desktop]
+renderer = "sdl3"
 
 [install]
 mode = "copy" 
@@ -28,6 +23,6 @@ hot_reload = true
 port = 3000
 auto_open = true
 
-[plugins]
-storage = { path = "../../KryonLabs/kryon-plugins/storage" }
-datetime = { path = "../../KryonLabs/kryon-plugins/datetime" }
+[plugins.kryon]
+path = "../../KryonLabs/kryon-plugins"
+use  = ["math", "storage", "datetime"]

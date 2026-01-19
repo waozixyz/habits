@@ -1,13 +1,15 @@
 // Habits Tracker - Main Application
-// KRY version with embedded Lua logic and reactive state management
 
-// Import Kryon plugins
+// Import modules
 import Storage from "storage"
 import DateTime from "datetime"
+import Math from "math"
+import ColorPalette from "components.color_palette"
+import Calendar from "components.calendar"
 
-// Import components
-import colorPalette from "components.color_palette"
-import calendar from "components.calendar"
+init() {
+  Storage.init("habits")
+}
 
 App {
   windowTitle = "Habits"
@@ -41,7 +43,7 @@ App {
         width = 50
         background = "#3d3d3d"
 
-        onClick = handleAddHabit
+        onClick = handleAddHabit()
       }
     }
 
@@ -51,11 +53,7 @@ App {
 
       for habit in getHabits() {
         TabPanel {
-          // Habit panel component
-          Module {
-            name = "components/habit_panel"
-            habitIndex = habit.index
-          }
+          HabitPanel(habit.index)
         }
       }
     }
@@ -67,16 +65,6 @@ App {
 // ============================================================================
 
 @lua
--- Initialize storage
-Storage.init("habits")
-
--- Seed random number generator using DateTime
-local now = DateTime.now()
-math.randomseed(now.hour * 3600 + now.minute * 60 + now.second)
-
--- ============================================================================
--- State
--- ============================================================================
 
 -- Get current date
 local function getCurrentDate()
@@ -283,10 +271,6 @@ return {
 @end
 
 @js
-// JavaScript implementation for web target
-// Initialize storage
-Storage.init("habits");
-
 // Get current date
 function getCurrentDate() {
   return DateTime.format(DateTime.now(), "%Y-%m-%d");
