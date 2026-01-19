@@ -4,9 +4,9 @@ version = "1.0.0"
 description = "Habits Tracker - A simple habit tracking application"
 
 [build]
-entry = "main.lua"
+entry = "main.kry"
 targets = ["desktop", "web"]
-frontend = "lua"
+frontend = "kry"
 output_dir = "dist"
 
 [window]

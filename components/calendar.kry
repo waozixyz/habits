@@ -1,6 +1,13 @@
--- Calendar data generation and styling utilities
--- Uses DateTime plugin for platform-independent date operations
+// Calendar Module
+// Calendar data generation and styling utilities
+// Uses DateTime plugin for platform-independent date operations
 
+Module {
+  name = "calendar"
+}
+
+@lua
+-- Import DateTime plugin
 local DateTime = require("datetime")
 
 local function getCurrentDate()
@@ -127,9 +134,142 @@ local function getDayStyle(day, themeColor)
   return style
 end
 
+-- Export functions
 return {
   generateCalendarData = generateCalendarData,
   generateCalendarRows = generateCalendarRows,
   getDayStyle = getDayStyle,
   isDateInFuture = isDateInFuture
 }
+@end
+
+@js
+// JavaScript implementation for web target
+const DateTime = require("datetime");
+
+function getCurrentDate() {
+  return DateTime.format(DateTime.now(), "%Y-%m-%d");
+}
+
+function getDaysInMonth(year, month) {
+  return DateTime.daysInMonth(year, month);
+}
+
+function getWeekday(year, month, day) {
+  return DateTime.weekday(year, month, day);
+}
+
+function makeDate(year, month, day) {
+  return DateTime.makeDate(year, month, day);
+}
+
+function isDateInFuture(dateStr) {
+  if (!dateStr || dateStr === "") return false;
+  const [year, month, day] = dateStr.match(/(\d+)-(\d+)-(\d+)/).slice(1);
+  if (!year) return false;
+  return DateTime.isFuture(parseInt(year), parseInt(month), parseInt(day));
+}
+
+function generateCalendarData(habit, year, month, themeColor) {
+  const today = getCurrentDate();
+  const [todayYear, todayMonth, todayDay] = today.match(/(\d+)-(\d+)-(\d+)/).slice(1).map(Number);
+
+  const daysInMonth = getDaysInMonth(year, month);
+  const firstWeekday = getWeekday(year, month, 1);
+  const startOffset = (firstWeekday + 6) % 7;
+
+  const days = [];
+
+  // Previous month padding
+  let prevMonth = month - 1;
+  let prevYear = year;
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    prevYear = prevYear - 1;
+  }
+  const daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
+
+  for (let i = 0; i < startOffset; i++) {
+    const dayNum = daysInPrevMonth - startOffset + 1 + i;
+    days.push({
+      dayNumber: dayNum,
+      date: "",
+      isCurrentMonth: false,
+      isToday: false,
+      isCompleted: false,
+      themeColor: themeColor || "#6b5b95"
+    });
+  }
+
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = makeDate(year, month, d);
+    const isCompleted = habit.completions[dateStr] || false;
+    const isToday = (year === todayYear && month === todayMonth && d === todayDay);
+
+    days.push({
+      dayNumber: d,
+      date: dateStr,
+      isCurrentMonth: true,
+      isToday: isToday,
+      isCompleted: isCompleted,
+      themeColor: themeColor || "#6b5b95"
+    });
+  }
+
+  // Next month padding
+  const nextMonthDays = 42 - days.length;
+  for (let d = 1; d <= nextMonthDays; d++) {
+    days.push({
+      dayNumber: d,
+      date: "",
+      isCurrentMonth: false,
+      isToday: false,
+      isCompleted: false,
+      themeColor: themeColor || "#6b5b95"
+    });
+  }
+
+  return days;
+}
+
+function generateCalendarRows(habit, year, month, themeColor) {
+  const flatDays = generateCalendarData(habit, year, month, themeColor);
+  const rows = [];
+
+  for (let weekRow = 0; weekRow < 6; weekRow++) {
+    const rowDays = [];
+    for (let dayCol = 0; dayCol < 7; dayCol++) {
+      const dayIndex = weekRow * 7 + dayCol;
+      rowDays.push(flatDays[dayIndex]);
+    }
+    rows.push(rowDays);
+  }
+
+  return rows;
+}
+
+function getDayStyle(day, themeColor) {
+  const style = {
+    backgroundColor: "#3d3d3d",
+    color: "#ffffff"
+  };
+
+  if (day.isCompleted) {
+    style.backgroundColor = themeColor || "#4a90e2";
+  } else if (day.isToday) {
+    style.borderColor = themeColor || "#4a90e2";
+  } else if (!day.isCurrentMonth) {
+    style.backgroundColor = "#2d2d2d";
+  }
+
+  return style;
+}
+
+module.exports = {
+  generateCalendarData,
+  generateCalendarRows,
+  getDayStyle,
+  isDateInFuture
+};
+@end

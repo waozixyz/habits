@@ -1,0 +1,97 @@
+// Tabs Component
+// Tab bar and panels for habit navigation
+
+TabGroup {
+  background = "#1a1a1a"
+  selectedIndex = getSelectedTabIndex()
+
+  // Tab bar with habit tabs and add button
+  TabBar {
+    background = "#2d2d2d"
+
+    for habit in getHabits() {
+      Tab {
+        text = habit.name
+        background = getTabBackground()
+        activeBackground = habit.color
+        color = "#ffffff"
+
+        onClick = handleTabClick
+      }
+    }
+
+    // Add new habit button
+    Tab {
+      text = "+"
+      width = 50
+      background = "#3d3d3d"
+
+      onClick = handleAddHabit
+    }
+  }
+
+  // Tab content with habit panels
+  TabContent {
+    background = "#1a1a1a"
+
+    for habit in getHabits() {
+      TabPanel {
+        // Habit panel component
+        Module {
+          name = "components/habit_panel"
+          habitIndex = habit.index
+        }
+      }
+    }
+  }
+}
+
+@lua
+-- Get list of habits
+function getHabits(state)
+  return state.habits
+end
+
+-- Get selected tab index
+function getSelectedTabIndex(state)
+  return state.selectedHabit - 1
+end
+
+-- Get tab background color
+function getTabBackground()
+  return "#3d3d3d"
+end
+
+-- Handle tab click
+function handleTabClick(habit, state)
+  state.selectedHabit = habit.index
+end
+
+-- Handle add new habit click
+function handleAddHabit(addNewHabit)
+  addNewHabit()
+end
+@end
+
+@js
+// JavaScript implementation for web target
+function getHabits(state) {
+  return state.habits;
+}
+
+function getSelectedTabIndex(state) {
+  return state.selectedHabit - 1;
+}
+
+function getTabBackground() {
+  return "#3d3d3d";
+}
+
+function handleTabClick(habit, state) {
+  state.selectedHabit = habit.index;
+}
+
+function handleAddHabit(addNewHabit) {
+  addNewHabit();
+}
+@end

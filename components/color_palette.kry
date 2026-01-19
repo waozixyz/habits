@@ -1,0 +1,37 @@
+// Color Palette Module
+// Provides color theme data for habits
+
+Module {
+  name = "color_palette"
+
+  // Native array and object literals work in both Lua and JavaScript!
+  COLORS = [
+    {name: "Blue", hex: "#4a90e2"},
+    {name: "Purple", hex: "#9b59b6"},
+    {name: "Green", hex: "#27ae60"},
+    {name: "Orange", hex: "#e67e22"},
+    {name: "Pink", hex: "#e91e63"},
+    {name: "Teal", hex: "#1abc9c"},
+    {name: "Red", hex: "#e74c3c"},
+    {name: "Indigo", hex: "#5c6bc0"},
+    {name: "Amber", hex: "#f39c12"},
+    {name: "Cyan", hex: "#00bcd4"}
+  ]
+
+  DEFAULT_COLOR = "#4a90e2"
+}
+
+// getRandomColor needs @lua/@js because it uses platform-specific APIs:
+// - Lua: math.random(1, #COLORS)
+// - JavaScript: Math.random() * COLORS.length
+@lua
+function getRandomColor()
+  return COLORS[math.random(1, #COLORS)].hex
+end
+@end
+
+@js
+function getRandomColor() {
+  return COLORS[Math.floor(Math.random() * COLORS.length)].hex;
+}
+@end
