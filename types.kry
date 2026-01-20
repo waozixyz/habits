@@ -1,11 +1,13 @@
-import DateTime from "datetime";
+import UUID from "uuid"
+import DateTime from "datetime"
 import { getRandomColor } from "components.color_palette"
 
-struct Habit {                                                                
-    name: string = "";                                        
-    createdAt: string = DateTime.today();                                                           
-    completions: map = {};                                          
-    color: string = getRandomColor();
+struct Habit {
+  id = UUID.v4()
+  name = "New Habit"
+  createdAt = DateTime.today()
+  completions = {}
+  color = getRandomColor()
 }
 
 return { Habit }

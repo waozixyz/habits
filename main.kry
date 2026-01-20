@@ -7,24 +7,27 @@ import Math from "math"
 
 import { COLORS, DEFAULT_COLOR, getRandomColor } from "components.color_palette"
 import { Habit } from "types"
+import HabitPanel from "components.habit_panel"
+
+var selectedHabit = 0
 
 func loadHabits() {
   var habits = Storage.load("habits", {})
   var today = DateTime.today()
 
   for habit in habits {
-    if (!habit.completions) {
-      habit.completions = {};
+    if !habit.completions {
+      habit.completions = {}
     }
-    if (!habit.color) {
-      habit.color = DEFAULT_COLOR;
+    if !habit.color {
+      habit.color = DEFAULT_COLOR
     }
-    if (!habit.createdAt) {
-      habit.createdAt = today;
+    if !habit.createdAt {
+      habit.createdAt = today
     }
   }
 
-  if (habits.length == 0) {
+  if habits.length == 0 {
     habits = [
       Habit { name = "Meditation", color = "#9b59b6" },
       Habit { name = "Exercise", color = "#27ae60" }
@@ -34,57 +37,50 @@ func loadHabits() {
   return habits
 }
 
-var habits = loadHabits();
+var habits = loadHabits()
 
 func addNewHabit() {
-  habits.push(Habit {
-    name = "New Habit"
-    // createdAt defaults to DateTime.today()
-    // completions defaults to {}
-    // color defaults to getRandomColor()
-  })
-  selectedHabit = habits.length;
+  habits.push(Habit{})
+  selectedHabit = habits.length
 }
 
-var selectedHabit = 0
-
 func init() {
-  Storage.init("habits");
+  Storage.init("habits")
 }
 
 App {
-  windowTitle = "Habits";
-  windowWidth = 800;
-  windowHeight = 750;
-  backgroundColor = "#1a1a1a";
-  
-  init();
+  windowTitle = "Habits"
+  windowWidth = 800
+  windowHeight = 750
+  backgroundColor = "#1a1a1a"
+
+  init()
 
   // Main tab group for habit navigation
   TabGroup {
-    background = "#1a1a1a";
-    selectedIndex = selectedHabit;
-  
+    background = "#1a1a1a"
+    selectedIndex = selectedHabit
+
     // Tab bar with habit tabs and add button
     TabBar {
-      background = "#2d2d2d";
-      
+      background = "#2d2d2d"
+
       for habit in habits {
         Tab {
-          text = habit.name;
-          background = "#3d3d3d";
-          activeBackground = habit.color;
-          color = "#ffffff";
+          text = habit.name
+          background = "#3d3d3d"
+          activeBackground = habit.color
+          color = "#ffffff"
         }
       }
 
       // Add new habit button
       Tab {
-        text = "+";
-        width = 50;
-        background = "#3d3d3d";
+        text = "+"
+        width = 50
+        background = "#3d3d3d"
 
-        onClick = () => addNewHabit();
+        onClick = () => addNewHabit()
       }
     }
 
@@ -100,3 +96,5 @@ App {
     }
   }
 }
+
+return App;

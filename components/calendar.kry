@@ -34,7 +34,9 @@ func generateCalendarData(habit, year, month, themeColor) {
       isCurrentMonth = false,
       isToday = false,
       isCompleted = false,
-      themeColor = themeColor or "#6b5b95"
+      backgroundColor = "#2d2d2d",
+      color = "#666666",
+      borderColor = null
     })
   }
 
@@ -43,6 +45,19 @@ func generateCalendarData(habit, year, month, themeColor) {
     var dateStr = DateTime.makeDate(year, month, d)
     var isCompleted = habit.completions[dateStr] or false
     var isToday = (year == todayYear and month == todayMonth and d == todayDay)
+    var isFuture = DateTime.isFutureDate(dateStr)
+
+    var backgroundColor = "#3d3d3d"
+    var borderColor = null
+    var color = "#ffffff"
+
+    if isCompleted {
+      backgroundColor = themeColor or "#4a90e2"
+    } else if isToday {
+      borderColor = themeColor or "#4a90e2"
+    } else if isFuture {
+      color = "#666666"
+    }
 
     days.push({
       dayNumber = d,
@@ -50,7 +65,9 @@ func generateCalendarData(habit, year, month, themeColor) {
       isCurrentMonth = true,
       isToday = isToday,
       isCompleted = isCompleted,
-      themeColor = themeColor or "#6b5b95"
+      backgroundColor = backgroundColor,
+      color = color,
+      borderColor = borderColor
     })
   }
 
@@ -63,7 +80,9 @@ func generateCalendarData(habit, year, month, themeColor) {
       isCurrentMonth = false,
       isToday = false,
       isCompleted = false,
-      themeColor = themeColor or "#6b5b95"
+      backgroundColor = "#2d2d2d",
+      color = "#666666",
+      borderColor = null
     })
   }
 
@@ -90,24 +109,6 @@ func generateCalendarRows(habit, year, month, themeColor) {
   return rows
 }
 
-// Get styling for a calendar day cell
-func getDayStyle(day, themeColor) {
-  var style = {
-    backgroundColor = "#3d3d3d",
-    color = "#ffffff"
-  }
-
-  if day.isCompleted {
-    style.backgroundColor = themeColor or "#4a90e2"
-  } else if day.isToday {
-    style.borderColor = themeColor or "#4a90e2"
-  } else if not day.isCurrentMonth {
-    style.backgroundColor = "#2d2d2d"
-  }
-
-  return style
-}
-
 // Check if a specific date is in the future
 func isDateInFuture(dateStr) {
   return DateTime.isFutureDate(dateStr)
@@ -126,7 +127,6 @@ func getMonthLabel(year, month) {
 return {
   generateCalendarData,
   generateCalendarRows,
-  getDayStyle,
   isDateInFuture,
   getWeekHeaders,
   getMonthLabel

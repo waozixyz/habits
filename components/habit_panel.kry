@@ -1,26 +1,18 @@
 // Habit Panel Component
 // Individual habit panel with calendar grid
 
-// Import modules
 import Storage from "storage"
 import DateTime from "datetime"
 import { COLORS, DEFAULT_COLOR } from "components.color_palette"
 import Calendar from "components.calendar"
+import { Habit } from "types"
 
-// State for this habit panel
 var displayedMonth = {
   year = DateTime.now().year,
   month = DateTime.now().month
 }
 
 var editingHabit = false
-
-func deleteHabit(habit) {
-  var habits = Storage.load("habits")
-  habits.delete(habit.index)
-
-  Storage.save("habits", habits)
-}
 
 func navigateMonth(delta) {
   displayedMonth.month = displayedMonth.month + delta
@@ -42,28 +34,50 @@ func getMonthLabel() {
   return Calendar.getMonthLabel(displayedMonth.year, displayedMonth.month)
 }
 
-func getHabitColor() {
-  return habit.color or DEFAULT_COLOR
-}
-
-func handleDayClick(day) {
-  if not day.disabled and day.isCurrentMonth and day.date != "" {
-    if habit.completions[day.date] {
-      delete habit.completions[day.date]
-    } else {
-      habit.completions[day.date] = true
+func findHabitIndex(habits, habitId) {
+  for i in 0..habits.length {
+    if habits[i].id == habitId {
+      return i
     }
-    Storage.save("habits", habits)
   }
-}
-
-func handleEditClick() {
-  editingHabit = not editingHabit
+  return -1
 }
 
 component HabitPanel (habit: Habit) extends TabPanel {
   background = "#1a1a1a"
   padding = 30
+
+  func deleteHabit() {
+    var habits = Storage.load("habits")
+    var index = findHabitIndex(habits, habit.id)
+    if index >= 0 {
+      habits.delete(index)
+      Storage.save("habits", habits)
+    }
+  }
+
+  func handleEditClick() {
+    editingHabit = !editingHabit
+  }
+
+  func handleDayClick(day) {
+    if !day.disabled and day.isCurrentMonth and day.date != "" {
+      var habits = Storage.load("habits")
+      var index = findHabitIndex(habits, habit.id)
+      if index >= 0 {
+        if habits[index].completions[day.date] {
+          delete habits[index].completions[day.date]
+        } else {
+          habits[index].completions[day.date] = true
+        }
+        Storage.save("habits", habits)
+      }
+    }
+  }
+
+  func getHabitColor() {
+    return habit.color or DEFAULT_COLOR
+  }
 
   // Title row (editable habit name)
   Row {
@@ -71,7 +85,6 @@ component HabitPanel (habit: Habit) extends TabPanel {
     alignItems = center
     gap = 10
 
-    // Show Input when editing, Text when viewing
     if (editingHabit) {
       Input {
         value = habit.name
@@ -89,7 +102,6 @@ component HabitPanel (habit: Habit) extends TabPanel {
       }
     }
 
-    // Edit button
     Button {
       text = editingHabit ? "Done" : "Edit"
       background = habit.color
@@ -98,14 +110,13 @@ component HabitPanel (habit: Habit) extends TabPanel {
       onClick = () => handleEditClick()
     }
 
-    // Delete button (only when editing)
     if editingHabit {
       Button {
         text = "Delete"
         background = "#e74c3c"
         color = "#ffffff"
         fontSize = 14
-        onClick = () => deleteHabit(habit)
+        onClick = () => deleteHabit()
       }
     }
   }
@@ -116,7 +127,6 @@ component HabitPanel (habit: Habit) extends TabPanel {
     alignItems = center
     justifyContent = space-between
 
-    // Previous month button
     Button {
       text = "<"
       background = getHabitColor()
@@ -127,14 +137,12 @@ component HabitPanel (habit: Habit) extends TabPanel {
       onClick = () => navigateMonth(-1)
     }
 
-    // Month label (dynamic binding)
     Text {
       text = getMonthLabel()
       color = "#ffffff"
       fontSize = 24
     }
 
-    // Next month button
     Button {
       text = ">"
       background = getHabitColor()
@@ -142,14 +150,12 @@ component HabitPanel (habit: Habit) extends TabPanel {
       fontSize = 18
       width = 40
       height = 40
-
       disabled = isCurrentMonth()
       onClick = () => navigateMonth(1)
     }
   }
 
-  // Color picker component
-  ColorPicker(habit.index)
+  ColorPicker(habit)
 
   // Week day headers
   Row {
@@ -190,8 +196,7 @@ component HabitPanel (habit: Habit) extends TabPanel {
               width = day.borderColor ? 1 : 0
               color = day.borderColor
             }
-            disabled = not day.isCurrentMonth or Calendar.isDateInFuture(day.date)
-
+            disabled = !day.isCurrentMonth or Calendar.isDateInFuture(day.date)
             onClick = (day) => handleDayClick(day)
           }
         }

@@ -25,4 +25,4 @@ auto_open = true
 
 [plugins.kryon]
 path = "../../KryonLabs/kryon-plugins"
-use  = ["math", "storage", "datetime"]
+use  = ["math", "storage", "datetime","uuid"]
