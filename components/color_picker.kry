@@ -2,9 +2,11 @@
 // Modal color picker for habit theme selection
 
 // Import components
-import colorPalette from "components.color_palette"
+import { COLORS, DEFAULT_COLOR, getRandomColor } from "components.color_palette"
 
-Container {
+var showColorPicker = false
+
+component ColorPicker(habit) {
   // Current color display row
   Row {
     display = flex
@@ -21,7 +23,10 @@ Container {
       width = 60
       height = 32
       background = getHabitColor()
-      border = {width: 0, radius: 8}
+      border = {
+        width = 0
+        radius = 8
+      }
 
       onClick = openColorPicker
     }
@@ -32,12 +37,15 @@ Container {
     width = 300
     height = 200
     background = "#2d2d2d"
-    border = {width: 0, radius: 12}
-    modal_state = {
-      isOpen = getShowColorPickerState(),
-      title: "Choose Theme Color"
+    border = {
+      width = 0
+      radius = 12
     }
-    onClose = closeColorPicker
+    modal_state = {
+      isOpen = showColorPicker
+      title = "Choose Theme Color"
+    }
+    onClose = () => showColorPicker = false
 
     // Color grid layout (2 rows of 5 colors)
     Column {
@@ -51,19 +59,19 @@ Container {
         display = flex
         gap = 8
 
-        for swatch in getColorSwatches() {
-          if swatch.index <= 5 {
+        for color in COLORS {
+          if color.index <= 5 {
             Button {
               width = 40
               height = 40
-              background = swatch.hex
+              background = color.hex
               border = {
-                width: swatch.isSelected ? 3 : 0,
-                color: "#ffffff",
-                radius: 8
+                width = color.isSelected ? 3 : 0
+                color = "#ffffff"
+                radius = 8
               }
 
-              onClick = handleColorSwatchClick
+              onClick = () => handleColorClick(color)
             }
           }
         }
@@ -74,19 +82,19 @@ Container {
         display = flex
         gap = 8
 
-        for swatch in getColorSwatches() {
-          if swatch.index > 5 {
+        for color in COLORS {
+          if color.index > 5 {
             Button {
               width = 40
               height = 40
-              background = swatch.hex
+              background = color.hex
               border = {
-                width: swatch.isSelected ? 3 : 0,
-                color: "#ffffff",
-                radius: 8
+                width = color.isSelected ? 3 : 0
+                color = "#ffffff"
+                radius = 8
               }
 
-              onClick = handleColorSwatchClick
+              onClick = () => handleColorClick(color)
             }
           }
         }
@@ -95,87 +103,4 @@ Container {
   }
 }
 
-@lua
--- Get current habit color
-function getHabitColor(habit)
-  return habit.color or colorPalette.DEFAULT_COLOR
-end
-
--- Check if color picker modal should be open
-function getShowColorPickerState(state)
-  return state.showColorPicker or false
-end
-
--- Build color swatch data
-function getColorSwatches(habit)
-  local habitColor = getHabitColor(habit)
-  local swatches = {}
-
-  for i, colorEntry in ipairs(colorPalette.COLORS) do
-    table.insert(swatches, {
-      index = i,
-      hex = colorEntry.hex,
-      name = colorEntry.name,
-      isSelected = habitColor == colorEntry.hex
-    })
-  end
-
-  return swatches
-end
-
--- Handle color swatch click
-function handleColorSwatchClick(swatch, habitIndex, updateHabitColor, state)
-  updateHabitColor(habitIndex, swatch.hex)
-  state.showColorPicker = false
-end
-
--- Handle opening the color picker
-function openColorPicker(state)
-  state.showColorPicker = true
-end
-
--- Handle closing the color picker
-function closeColorPicker(state)
-  state.showColorPicker = false
-end
-@end
-
-@js
-// JavaScript implementation for web target
-function getHabitColor(habit) {
-  return habit.color || colorPalette.DEFAULT_COLOR;
-}
-
-function getShowColorPickerState(state) {
-  return state.showColorPicker || false;
-}
-
-function getColorSwatches(habit) {
-  const habitColor = getHabitColor(habit);
-  const swatches = [];
-
-  colorPalette.COLORS.forEach((colorEntry, i) => {
-    swatches.push({
-      index: i + 1,
-      hex: colorEntry.hex,
-      name: colorEntry.name,
-      isSelected: habitColor === colorEntry.hex
-    });
-  });
-
-  return swatches;
-}
-
-function handleColorSwatchClick(swatch, habitIndex, updateHabitColor, state) {
-  updateHabitColor(habitIndex, swatch.hex);
-  state.showColorPicker = false;
-}
-
-function openColorPicker(state) {
-  state.showColorPicker = true;
-}
-
-function closeColorPicker(state) {
-  state.showColorPicker = false;
-}
-@end
+return ColorPicker

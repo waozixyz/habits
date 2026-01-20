@@ -1,13 +1,67 @@
 // Habit Panel Component
 // Individual habit panel with calendar grid
 
-// Import Kryon plugins
+// Import modules
+import Storage from "storage"
 import DateTime from "datetime"
+import { COLORS, DEFAULT_COLOR } from "components.color_palette"
+import Calendar from "components.calendar"
 
-// Import components
-import calendar from "components.calendar"
+// State for this habit panel
+var displayedMonth = {
+  year = DateTime.now().year,
+  month = DateTime.now().month
+}
 
-TabPanel {
+var editingHabit = false
+
+func deleteHabit(habit) {
+  var habits = Storage.load("habits")
+  habits.delete(habit.index)
+
+  Storage.save("habits", habits)
+}
+
+func navigateMonth(delta) {
+  displayedMonth.month = displayedMonth.month + delta
+  if displayedMonth.month > 12 {
+    displayedMonth.month = 1
+    displayedMonth.year = displayedMonth.year + 1
+  } else if displayedMonth.month < 1 {
+    displayedMonth.month = 12
+    displayedMonth.year = displayedMonth.year - 1
+  }
+}
+
+func isCurrentMonth() {
+  var now = DateTime.now()
+  return displayedMonth.year == now.year and displayedMonth.month == now.month
+}
+
+func getMonthLabel() {
+  return Calendar.getMonthLabel(displayedMonth.year, displayedMonth.month)
+}
+
+func getHabitColor() {
+  return habit.color or DEFAULT_COLOR
+}
+
+func handleDayClick(day) {
+  if not day.disabled and day.isCurrentMonth and day.date != "" {
+    if habit.completions[day.date] {
+      delete habit.completions[day.date]
+    } else {
+      habit.completions[day.date] = true
+    }
+    Storage.save("habits", habits)
+  }
+}
+
+func handleEditClick() {
+  editingHabit = not editingHabit
+}
+
+component HabitPanel (habit: Habit) extends TabPanel {
   background = "#1a1a1a"
   padding = 30
 
@@ -18,19 +72,18 @@ TabPanel {
     gap = 10
 
     // Show Input when editing, Text when viewing
-    if isEditingHabit() {
+    if (editingHabit) {
       Input {
-        value = getEditingName()
+        value = habit.name
         fontSize = 24
         color = "#ffffff"
         background = "#2d2d2d"
         width = 300
-
-        onTextChange = handleNameChange
+        onTextChange = (value) => habit.name = value
       }
     } else {
       Text {
-        text = getHabitName()
+        text = habit.name
         fontSize = 24
         color = "#ffffff"
       }
@@ -38,23 +91,21 @@ TabPanel {
 
     // Edit button
     Button {
-      text = getEditButtonText()
-      background = getHabitColor()
+      text = editingHabit ? "Done" : "Edit"
+      background = habit.color
       color = "#ffffff"
-      fontSize = getEditButtonFontSize()
-
-      onClick = handleEditClick
+      fontSize = 14
+      onClick = () => handleEditClick()
     }
 
     // Delete button (only when editing)
-    if isEditingHabit() {
+    if editingHabit {
       Button {
         text = "Delete"
         background = "#e74c3c"
         color = "#ffffff"
         fontSize = 14
-
-        onClick = handleDeleteClick
+        onClick = () => deleteHabit(habit)
       }
     }
   }
@@ -73,8 +124,7 @@ TabPanel {
       fontSize = 18
       width = 40
       height = 40
-
-      onClick = handlePrevMonth
+      onClick = () => navigateMonth(-1)
     }
 
     // Month label (dynamic binding)
@@ -94,22 +144,19 @@ TabPanel {
       height = 40
 
       disabled = isCurrentMonth()
-      onClick = handleNextMonth
+      onClick = () => navigateMonth(1)
     }
   }
 
   // Color picker component
-  Module {
-    name = "components/color_picker"
-    habitIndex = getHabitIndex()
-  }
+  ColorPicker(habit.index)
 
   // Week day headers
   Row {
     display = flex
     gap = 5
 
-    for dayName in getWeekHeaders() {
+    for dayName in Calendar.getWeekHeaders() {
       Button {
         text = dayName
         width = 40
@@ -126,7 +173,7 @@ TabPanel {
     display = flex
     gap = 0
 
-    for weekRow in getCalendarRows() {
+    for weekRow in Calendar.generateCalendarRows(habit, displayedMonth.year, displayedMonth.month, getHabitColor()) {
       Row {
         display = flex
         gap = 5
@@ -140,12 +187,12 @@ TabPanel {
             background = day.backgroundColor
             color = day.color
             border = {
-              width: day.borderColor ? 1 : 0,
-              color: day.borderColor
+              width = day.borderColor ? 1 : 0
+              color = day.borderColor
             }
-            disabled = day.disabled
+            disabled = not day.isCurrentMonth or Calendar.isDateInFuture(day.date)
 
-            onClick = handleDayClick
+            onClick = (day) => handleDayClick(day)
           }
         }
       }
@@ -153,240 +200,4 @@ TabPanel {
   }
 }
 
-@lua
--- Check if habit is being edited
-function isEditingHabit(state, habitIndex)
-  return state.editingHabit == habitIndex
-end
-
--- Get editing name text
-function getEditingName(editingState)
-  return editingState.name
-end
-
--- Get habit name
-function getHabitName(habit)
-  return habit.name
-end
-
--- Get edit button text
-function getEditButtonText(state, habitIndex)
-  return isEditingHabit(state, habitIndex) and "Done" or "Edit"
-end
-
--- Get edit button font size
-function getEditButtonFontSize(state, habitIndex)
-  return isEditingHabit(state, habitIndex) and 0 or 14
-end
-
--- Get habit color
-function getHabitColor(habit)
-  return habit.color or "#4a90e2"
-end
-
--- Get habit index
-function getHabitIndex(habitIndex)
-  return habitIndex
-end
-
--- Check if displayed month is current month
-function isCurrentMonth(state)
-  local now = DateTime.now()
-  return state.displayedMonth.year == now.year and state.displayedMonth.month == now.month
-end
-
--- Get month label
-function getMonthLabel(state)
-  local year = state.displayedMonth.year
-  local month = state.displayedMonth.month
-  return DateTime.format({year=year, month=month, day=1}, "%B %Y")
-end
-
--- Get week day headers
-function getWeekHeaders()
-  return {"M", "T", "W", "T", "F", "S", "S"}
-end
-
--- Get calendar rows
-function getCalendarRows(habit, state, habitIndex)
-  local habitColor = getHabitColor(habit)
-  local year = state.displayedMonth.year
-  local month = state.displayedMonth.month
-
-  local rows = calendar.generateCalendarRows(habit, year, month, habitColor)
-  local gridData = {}
-
-  for rowIndex, weekRow in ipairs(rows) do
-    local rowData = {rowIndex = rowIndex, days = {}}
-
-    for colIndex, day in ipairs(weekRow) do
-      local style = calendar.getDayStyle(day, habitColor)
-
-      table.insert(rowData.days, {
-        dayNumber = day.dayNumber,
-        date = day.date,
-        isCurrentMonth = day.isCurrentMonth,
-        isToday = day.isToday,
-        isCompleted = day.isCompleted,
-        backgroundColor = style.backgroundColor,
-        borderColor = style.borderColor,
-        color = style.color,
-        disabled = calendar.isDateInFuture(day.date) or not day.isCurrentMonth
-      })
-    end
-
-    table.insert(gridData, rowData)
-  end
-
-  return gridData
-end
-
--- Handle edit button click
-function handleEditClick(habitIndex, state, editingState, habit, updateHabitName)
-  if state.editingHabit == habitIndex then
-    updateHabitName(habitIndex, editingState.name)
-    state.editingHabit = 0
-  else
-    editingState.name = habit.name
-    state.editingHabit = habitIndex
-  end
-end
-
--- Handle delete button click
-function handleDeleteClick(habitIndex, deleteHabit)
-  deleteHabit(habitIndex)
-end
-
--- Handle name text change
-function handleNameChange(newName, editingState)
-  editingState.name = newName
-end
-
--- Handle previous month click
-function handlePrevMonth(navigateMonth)
-  navigateMonth(-1)
-end
-
--- Handle next month click
-function handleNextMonth(navigateMonth)
-  navigateMonth(1)
-end
-
--- Handle day cell click (toggle completion)
-function handleDayClick(day, habitIndex, toggleHabitCompletion)
-  if day.date and day.date ~= "" then
-    toggleHabitCompletion(habitIndex, day.date)
-  end
-end
-@end
-
-@js
-// JavaScript implementation for web target
-function isEditingHabit(state, habitIndex) {
-  return state.editingHabit === habitIndex;
-}
-
-function getEditingName(editingState) {
-  return editingState.name;
-}
-
-function getHabitName(habit) {
-  return habit.name;
-}
-
-function getEditButtonText(state, habitIndex) {
-  return isEditingHabit(state, habitIndex) ? "Done" : "Edit";
-}
-
-function getEditButtonFontSize(state, habitIndex) {
-  return isEditingHabit(state, habitIndex) ? 0 : 14;
-}
-
-function getHabitColor(habit) {
-  return habit.color || "#4a90e2";
-}
-
-function getHabitIndex(habitIndex) {
-  return habitIndex;
-}
-
-function isCurrentMonth(state) {
-  const now = DateTime.now();
-  return state.displayedMonth.year === now.year && state.displayedMonth.month === now.month;
-}
-
-function getMonthLabel(state) {
-  const year = state.displayedMonth.year;
-  const month = state.displayedMonth.month;
-  return DateTime.format({year, month, day: 1}, "%B %Y");
-}
-
-function getWeekHeaders() {
-  return ["M", "T", "W", "T", "F", "S", "S"];
-}
-
-function getCalendarRows(habit, state, habitIndex) {
-  const habitColor = getHabitColor(habit);
-  const year = state.displayedMonth.year;
-  const month = state.displayedMonth.month;
-
-  const rows = calendar.generateCalendarRows(habit, year, month, habitColor);
-  const gridData = [];
-
-  rows.forEach((weekRow, rowIndex) => {
-    const rowData = {rowIndex: rowIndex + 1, days: []};
-
-    weekRow.forEach((day) => {
-      const style = calendar.getDayStyle(day, habitColor);
-
-      rowData.days.push({
-        dayNumber: day.dayNumber,
-        date: day.date,
-        isCurrentMonth: day.isCurrentMonth,
-        isToday: day.isToday,
-        isCompleted: day.isCompleted,
-        backgroundColor: style.backgroundColor,
-        borderColor: style.borderColor,
-        color: style.color,
-        disabled: calendar.isDateInFuture(day.date) || !day.isCurrentMonth
-      });
-    });
-
-    gridData.push(rowData);
-  });
-
-  return gridData;
-}
-
-function handleEditClick(habitIndex, state, editingState, habit, updateHabitName) {
-  if (state.editingHabit === habitIndex) {
-    updateHabitName(habitIndex, editingState.name);
-    state.editingHabit = 0;
-  } else {
-    editingState.name = habit.name;
-    state.editingHabit = habitIndex;
-  }
-}
-
-function handleDeleteClick(habitIndex, deleteHabit) {
-  deleteHabit(habitIndex);
-}
-
-function handleNameChange(newName, editingState) {
-  editingState.name = newName;
-}
-
-function handlePrevMonth(navigateMonth) {
-  navigateMonth(-1);
-}
-
-function handleNextMonth(navigateMonth) {
-  navigateMonth(1);
-}
-
-function handleDayClick(day, habitIndex, toggleHabitCompletion) {
-  if (day.date && day.date !== "") {
-    toggleHabitCompletion(habitIndex, day.date);
-  }
-}
-@end
+return HabitPanel

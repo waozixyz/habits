@@ -4,46 +4,87 @@
 import Storage from "storage"
 import DateTime from "datetime"
 import Math from "math"
-import ColorPalette from "components.color_palette"
-import Calendar from "components.calendar"
 
-init() {
-  Storage.init("habits")
+import { COLORS, DEFAULT_COLOR, getRandomColor } from "components.color_palette"
+import { Habit } from "types"
+
+func loadHabits() {
+  var habits = Storage.load("habits", {})
+  var today = DateTime.today()
+
+  for habit in habits {
+    if (!habit.completions) {
+      habit.completions = {};
+    }
+    if (!habit.color) {
+      habit.color = DEFAULT_COLOR;
+    }
+    if (!habit.createdAt) {
+      habit.createdAt = today;
+    }
+  }
+
+  if (habits.length == 0) {
+    habits = [
+      Habit { name = "Meditation", color = "#9b59b6" },
+      Habit { name = "Exercise", color = "#27ae60" }
+    ]
+  }
+
+  return habits
+}
+
+var habits = loadHabits();
+
+func addNewHabit() {
+  habits.push(Habit {
+    name = "New Habit"
+    // createdAt defaults to DateTime.today()
+    // completions defaults to {}
+    // color defaults to getRandomColor()
+  })
+  selectedHabit = habits.length;
+}
+
+var selectedHabit = 0
+
+func init() {
+  Storage.init("habits");
 }
 
 App {
-  windowTitle = "Habits"
-  windowWidth = 800
-  windowHeight = 750
-  backgroundColor = "#1a1a1a"
+  windowTitle = "Habits";
+  windowWidth = 800;
+  windowHeight = 750;
+  backgroundColor = "#1a1a1a";
+  
+  init();
 
   // Main tab group for habit navigation
   TabGroup {
-    background = "#1a1a1a"
-    selectedIndex = getSelectedTabIndex()
-
+    background = "#1a1a1a";
+    selectedIndex = selectedHabit;
+  
     // Tab bar with habit tabs and add button
     TabBar {
-      background = "#2d2d2d"
-
-      for habit in getHabits() {
+      background = "#2d2d2d";
+      
+      for habit in habits {
         Tab {
-          text = habit.name
-          background = getTabBackground()
-          activeBackground = habit.color
-          color = "#ffffff"
-
-          onClick = handleTabClick
+          text = habit.name;
+          background = "#3d3d3d";
+          activeBackground = habit.color;
+          color = "#ffffff";
         }
       }
 
       // Add new habit button
       Tab {
-        text = "+"
-        width = 50
-        background = "#3d3d3d"
+        text = "+";
+        width = 50;
+        background = "#3d3d3d";
 
-        onClick = handleAddHabit()
+        onClick = () => addNewHabit();
       }
     }
 
@@ -51,384 +92,11 @@ App {
     TabContent {
       background = "#1a1a1a"
 
-      for habit in getHabits() {
+      for habit in habits {
         TabPanel {
-          HabitPanel(habit.index)
+          HabitPanel(habit)
         }
       }
     }
   }
 }
-
-// ============================================================================
-// Reactive State Management
-// ============================================================================
-
-@lua
-
--- Get current date
-local function getCurrentDate()
-  return DateTime.format(DateTime.now(), "%Y-%m-%d")
-end
-
--- Load habits from storage
-local function loadHabits()
-  local habits = Storage.Collections.load("habits", {})
-  local today = getCurrentDate()
-
-  -- Single pass for migration and defaults
-  for _, habit in ipairs(habits) do
-    habit.completions = type(habit.completions) == "table" and habit.completions or {}
-    habit.color = (habit.color and habit.color ~= "") and habit.color or colorPalette.DEFAULT_COLOR
-    habit.createdAt = habit.createdAt or today
-  end
-
-  -- Fallback if storage is empty
-  if #habits == 0 then
-    -- Native array/object literals work in both Lua and JavaScript!
-    return [
-      {name: "Meditation", createdAt: today, completions: {}, color: "#9b59b6"},
-      {name: "Exercise", createdAt: today, completions: {}, color: "#27ae60"}
-    ]
-  end
-
-  return habits
-end
-
--- Get current year/month from DateTime plugin
-local currentDateTime = DateTime.now()
-local initialYear = currentDateTime.year
-local initialMonth = currentDateTime.month
-
--- Restore displayed month from storage (for web platform)
-if Storage.get then
-  local savedMonth = Storage.get("displayedMonth")
-  if savedMonth and type(savedMonth) == "string" then
-    local year, month = string.match(savedMonth, "^(%d+)%-(%d+)$")
-    if year and month then
-      local y, m = tonumber(year), tonumber(month)
-      if y and y > 2000 and m and m >= 1 and m <= 12 then
-        initialYear = y
-        initialMonth = m
-      end
-    end
-  end
-end
-
--- ============================================================================
--- Reactive State Declaration
--- ============================================================================
-
--- Native object literals work in both Lua and JavaScript!
-state = {
-  habits: loadHabits(),
-  selectedHabit: 1,
-  editingHabit: 0,
-  showColorPicker: false,
-  displayedMonth: {
-    year: initialYear,
-    month: initialMonth
-  }
-}
-
--- Non-reactive editing state (doesn't trigger rebuilds on every keystroke)
--- Native object literals work in both Lua and JavaScript!
-local editingState = {
-  name: ""
-}
-
--- ============================================================================
--- Computed Properties
--- ============================================================================
-
-function getSelectedHabit()
-  if state.selectedHabit > 0 and state.selectedHabit <= #state.habits then
-    return state.habits[state.selectedHabit]
-  end
-  return nil
-end
-
-function hasHabits()
-  return #state.habits > 0
-end
-
--- ============================================================================
--- Actions (Batched State Updates with Auto-Save)
--- ============================================================================
-
-function addNewHabit()
-  local newIndex = #state.habits + 1
-  -- Native object literal works in both Lua and JavaScript!
-  state.habits[newIndex] = {
-    name: "New Habit",
-    createdAt: getCurrentDate(),
-    completions: {},
-    color: colorPalette.getRandomColor()
-  }
-  state.selectedHabit = newIndex
-  -- Manual save
-  Storage.Collections.save("habits", state.habits)
-end
-
-function toggleHabitCompletion(habitIndex, dateStr)
-  if not dateStr or dateStr == "" then return end
-
-  if calendar.isDateInFuture(dateStr) then
-    return
-  end
-
-  local completions = state.habits[habitIndex].completions
-  local oldValue = completions[dateStr] or false
-  completions[dateStr] = not oldValue
-  -- Manual save
-  Storage.Collections.save("habits", state.habits)
-end
-
-function updateHabitName(habitIndex, newName)
-  if state.habits[habitIndex] then
-    state.habits[habitIndex].name = newName
-    -- Manual save
-    Storage.Collections.save("habits", state.habits)
-  end
-end
-
-function updateHabitColor(habitIndex, newColor)
-  if state.habits[habitIndex] then
-    state.habits[habitIndex].color = newColor
-    -- Manual save
-    Storage.Collections.save("habits", state.habits)
-  end
-end
-
-function deleteHabit(habitIndex)
-  if state.habits[habitIndex] then
-    table.remove(state.habits, habitIndex)
-    state.selectedHabit = math.max(1, math.min(state.selectedHabit, #state.habits))
-
-    if state.editingHabit == habitIndex then
-      state.editingHabit = 0
-    end
-    -- Manual save
-    Storage.Collections.save("habits", state.habits)
-  end
-end
-
-function navigateMonth(offset)
-  local totalMonths = state.displayedMonth.year * 12 + (state.displayedMonth.month - 1) + offset
-
-  state.displayedMonth.year = math.floor(totalMonths / 12)
-  state.displayedMonth.month = (totalMonths % 12) + 1
-
-  if Storage.set then
-    Storage.set("displayedMonth", state.displayedMonth.year .. "-" .. state.displayedMonth.month)
-  end
-end
-
--- ============================================================================
--- UI Functions
--- ============================================================================
-
--- Get list of habits
-function getHabits()
-  local habitsWithIndex = {}
-  for i, habit in ipairs(state.habits) do
-    habit.index = i
-    table.insert(habitsWithIndex, habit)
-  end
-  return habitsWithIndex
-end
-
--- Get selected tab index
-function getSelectedTabIndex()
-  return state.selectedHabit - 1
-end
-
--- Get tab background color
-function getTabBackground()
-  return "#3d3d3d"
-end
-
--- Handle tab click
-function handleTabClick(habit)
-  state.selectedHabit = habit.index
-end
-
--- Handle add new habit click
-function handleAddHabit()
-  addNewHabit()
-end
-
--- Export state and handlers for child components
-return {
-  state = state,
-  editingState = editingState,
-  toggleHabitCompletion = toggleHabitCompletion,
-  updateHabitName = updateHabitName,
-  navigateMonth = navigateMonth,
-  updateHabitColor = updateHabitColor,
-  deleteHabit = deleteHabit
-}
-@end
-
-@js
-// Get current date
-function getCurrentDate() {
-  return DateTime.format(DateTime.now(), "%Y-%m-%d");
-}
-
-// Load habits from storage
-function loadHabits() {
-  let habits = Storage.Collections.load("habits", []);
-  const today = getCurrentDate();
-
-  // Migration and defaults
-  habits = habits.map(habit => ({
-    ...habit,
-    completions: typeof habit.completions === "object" ? habit.completions : {},
-    color: (habit.color && habit.color !== "") ? habit.color : colorPalette.DEFAULT_COLOR,
-    createdAt: habit.createdAt || today
-  }));
-
-  // Fallback if storage is empty
-  if (habits.length === 0) {
-    return [
-      {name: "Meditation", createdAt: today, completions: {}, color: "#9b59b6"},
-      {name: "Exercise", createdAt: today, completions: {}, color: "#27ae60"}
-    ];
-  }
-
-  return habits;
-}
-
-// Get current year/month
-const currentDateTime = DateTime.now();
-let initialYear = currentDateTime.year;
-let initialMonth = currentDateTime.month;
-
-// Restore displayed month from storage
-if (Storage.get) {
-  const savedMonth = Storage.get("displayedMonth");
-  if (savedMonth && typeof savedMonth === "string") {
-    const match = savedMonth.match(/^(\d+)-(\d+)$/);
-    if (match) {
-      const [, year, month] = match;
-      const y = parseInt(year);
-      const m = parseInt(month);
-      if (y && y > 2000 && m && m >= 1 && m <= 12) {
-        initialYear = y;
-        initialMonth = m;
-      }
-    }
-  }
-}
-
-// Application state
-const state = {
-  habits: loadHabits(),
-  selectedHabit: 1,
-  editingHabit: 0,
-  showColorPicker: false,
-  displayedMonth: {
-    year: initialYear,
-    month: initialMonth
-  }
-};
-
-// Non-reactive editing state
-const editingState = {
-  name: ""
-};
-
-// Event handlers
-function addNewHabit() {
-  const newIndex = state.habits.length + 1;
-  state.habits[newIndex] = {
-    name: "New Habit",
-    createdAt: getCurrentDate(),
-    completions: {},
-    color: colorPalette.getRandomColor()
-  };
-  state.selectedHabit = newIndex;
-}
-
-function toggleHabitCompletion(habitIndex, dateStr) {
-  if (!dateStr || dateStr === "") return;
-
-  if (calendar.isDateInFuture(dateStr)) {
-    return;
-  }
-
-  const completions = state.habits[habitIndex].completions;
-  const oldValue = completions[dateStr] || false;
-  completions[dateStr] = !oldValue;
-}
-
-function updateHabitName(habitIndex, newName) {
-  if (state.habits[habitIndex]) {
-    state.habits[habitIndex].name = newName;
-  }
-}
-
-function updateHabitColor(habitIndex, newColor) {
-  if (state.habits[habitIndex]) {
-    state.habits[habitIndex].color = newColor;
-  }
-}
-
-function deleteHabit(habitIndex) {
-  if (state.habits[habitIndex]) {
-    state.habits.splice(habitIndex, 1);
-    state.selectedHabit = Math.max(1, Math.min(state.selectedHabit, state.habits.length));
-
-    if (state.editingHabit === habitIndex) {
-      state.editingHabit = 0;
-    }
-  }
-}
-
-function navigateMonth(offset) {
-  const totalMonths = state.displayedMonth.year * 12 + (state.displayedMonth.month - 1) + offset;
-
-  state.displayedMonth.year = Math.floor(totalMonths / 12);
-  state.displayedMonth.month = (totalMonths % 12) + 1;
-
-  if (Storage.set) {
-    Storage.set("displayedMonth", state.displayedMonth.year + "-" + state.displayedMonth.month);
-  }
-}
-
-// UI Functions
-function getHabits() {
-  return state.habits.map((habit, i) => ({
-    ...habit,
-    index: i + 1
-  }));
-}
-
-function getSelectedTabIndex() {
-  return state.selectedHabit - 1;
-}
-
-function getTabBackground() {
-  return "#3d3d3d";
-}
-
-function handleTabClick(habit) {
-  state.selectedHabit = habit.index;
-}
-
-function handleAddHabit() {
-  addNewHabit();
-}
-
-// Export state and handlers for child components
-module.exports = {
-  state,
-  editingState,
-  toggleHabitCompletion,
-  updateHabitName,
-  navigateMonth,
-  updateHabitColor,
-  deleteHabit
-};
-@end

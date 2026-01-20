@@ -1,0 +1,11 @@
+import DateTime from "datetime";
+import { getRandomColor } from "components.color_palette"
+
+struct Habit {                                                                
+    name: string = "";                                        
+    createdAt: string = DateTime.today();                                                           
+    completions: map = {};                                          
+    color: string = getRandomColor();
+}
+
+return { Habit }

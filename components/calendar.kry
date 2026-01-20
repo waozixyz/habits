@@ -1,62 +1,34 @@
 // Calendar Module
 // Calendar data generation and styling utilities
-// Uses DateTime plugin for platform-independent date operations
 
-Module {
-  name = "calendar"
-}
+import DateTime from "datetime"
 
-@lua
--- Import DateTime plugin
-local DateTime = require("datetime")
+// Generate calendar data for a given habit and month
+func generateCalendarData(habit, year, month, themeColor) {
+  var today = DateTime.today()
+  var todayParts = today.split("-")
+  var todayYear = todayParts[0].toNumber()
+  var todayMonth = todayParts[1].toNumber()
+  var todayDay = todayParts[2].toNumber()
 
-local function getCurrentDate()
-  return DateTime.format(DateTime.now(), "%Y-%m-%d")
-end
+  var daysInMonth = DateTime.daysInMonth(year, month)
+  var firstWeekday = DateTime.weekday(year, month, 1)
+  var startOffset = (firstWeekday + 6) % 7
 
-local function getDaysInMonth(year, month)
-  return DateTime.daysInMonth(year, month)
-end
+  var days = []
 
-local function getWeekday(year, month, day)
-  return DateTime.weekday(year, month, day)
-end
-
-local function makeDate(year, month, day)
-  return DateTime.makeDate(year, month, day)
-end
-
-local function isDateInFuture(dateStr)
-  if not dateStr or dateStr == "" then return false end
-  local year, month, day = dateStr:match("(%d+)-(%d+)-(%d+)")
-  if not year then return false end
-  return DateTime.isFuture(tonumber(year), tonumber(month), tonumber(day))
-end
-
--- Generate calendar data for a given habit and month
-local function generateCalendarData(habit, year, month, themeColor)
-  local today = getCurrentDate()
-  local todayYear, todayMonth, todayDay = today:match("(%d+)-(%d+)-(%d+)")
-  todayYear, todayMonth, todayDay = tonumber(todayYear), tonumber(todayMonth), tonumber(todayDay)
-
-  local daysInMonth = getDaysInMonth(year, month)
-  local firstWeekday = getWeekday(year, month, 1)
-  local startOffset = (firstWeekday + 6) % 7
-
-  local days = {}
-
-  -- Previous month padding
-  local prevMonth = month - 1
-  local prevYear = year
-  if prevMonth == 0 then
+  // Previous month padding
+  var prevMonth = month - 1
+  var prevYear = year
+  if prevMonth == 0 {
     prevMonth = 12
     prevYear = prevYear - 1
-  end
-  local daysInPrevMonth = getDaysInMonth(prevYear, prevMonth)
+  }
+  var daysInPrevMonth = DateTime.daysInMonth(prevYear, prevMonth)
 
-  for i = 0, startOffset - 1 do
-    local dayNum = daysInPrevMonth - startOffset + 1 + i
-    table.insert(days, {
+  for i in 0..startOffset {
+    var dayNum = daysInPrevMonth - startOffset + 1 + i
+    days.push({
       dayNumber = dayNum,
       date = "",
       isCurrentMonth = false,
@@ -64,15 +36,15 @@ local function generateCalendarData(habit, year, month, themeColor)
       isCompleted = false,
       themeColor = themeColor or "#6b5b95"
     })
-  end
+  }
 
-  -- Current month days
-  for d = 1, daysInMonth do
-    local dateStr = makeDate(year, month, d)
-    local isCompleted = habit.completions[dateStr] or false
-    local isToday = (year == todayYear and month == todayMonth and d == todayDay)
+  // Current month days
+  for d in 1..daysInMonth {
+    var dateStr = DateTime.makeDate(year, month, d)
+    var isCompleted = habit.completions[dateStr] or false
+    var isToday = (year == todayYear and month == todayMonth and d == todayDay)
 
-    table.insert(days, {
+    days.push({
       dayNumber = d,
       date = dateStr,
       isCurrentMonth = true,
@@ -80,12 +52,12 @@ local function generateCalendarData(habit, year, month, themeColor)
       isCompleted = isCompleted,
       themeColor = themeColor or "#6b5b95"
     })
-  end
+  }
 
-  -- Next month padding
-  local nextMonthDays = 42 - #days
-  for d = 1, nextMonthDays do
-    table.insert(days, {
+  // Next month padding
+  var nextMonthDays = 42 - days.length
+  for d in 1..nextMonthDays {
+    days.push({
       dayNumber = d,
       date = "",
       isCurrentMonth = false,
@@ -93,183 +65,69 @@ local function generateCalendarData(habit, year, month, themeColor)
       isCompleted = false,
       themeColor = themeColor or "#6b5b95"
     })
-  end
+  }
 
   return days
-end
+}
 
--- Generate calendar data structured as rows for ForEach rendering
--- Returns an array of 6 rows, each containing 7 days
-local function generateCalendarRows(habit, year, month, themeColor)
-  local flatDays = generateCalendarData(habit, year, month, themeColor)
-  local rows = {}
+// Generate calendar data structured as rows for rendering
+// Returns an array of 6 rows, each containing 7 days
+func generateCalendarRows(habit, year, month, themeColor) {
+  var flatDays = generateCalendarData(habit, year, month, themeColor)
+  var rows = []
 
-  for weekRow = 0, 5 do
-    local rowDays = {}
-    for dayCol = 0, 6 do
-      local dayIndex = weekRow * 7 + dayCol + 1
-      table.insert(rowDays, flatDays[dayIndex])
-    end
-    table.insert(rows, rowDays)
-  end
+  for weekRow in 0..5 {
+    var rowDays = []
+    for dayCol in 0..6 {
+      var dayIndex = weekRow * 7 + dayCol
+      rowDays.push(flatDays[dayIndex])
+    }
+    rows.push({
+      days = rowDays
+    })
+  }
 
   return rows
-end
+}
 
--- Get styling for a calendar day cell
-local function getDayStyle(day, themeColor)
-  local style = {
+// Get styling for a calendar day cell
+func getDayStyle(day, themeColor) {
+  var style = {
     backgroundColor = "#3d3d3d",
     color = "#ffffff"
   }
 
-  if day.isCompleted then
+  if day.isCompleted {
     style.backgroundColor = themeColor or "#4a90e2"
-  elseif day.isToday then
+  } else if day.isToday {
     style.borderColor = themeColor or "#4a90e2"
-  elseif not day.isCurrentMonth then
+  } else if not day.isCurrentMonth {
     style.backgroundColor = "#2d2d2d"
-  end
+  }
 
   return style
-end
+}
 
--- Export functions
+// Check if a specific date is in the future
+func isDateInFuture(dateStr) {
+  return DateTime.isFutureDate(dateStr)
+}
+
+// Get week day headers
+func getWeekHeaders() {
+  return ["S", "M", "T", "W", "T", "F", "S"]
+}
+
+// Get month label for display
+func getMonthLabel(year, month) {
+  return DateTime.monthName(month) + " " + year
+}
+
 return {
-  generateCalendarData = generateCalendarData,
-  generateCalendarRows = generateCalendarRows,
-  getDayStyle = getDayStyle,
-  isDateInFuture = isDateInFuture
-}
-@end
-
-@js
-// JavaScript implementation for web target
-const DateTime = require("datetime");
-
-function getCurrentDate() {
-  return DateTime.format(DateTime.now(), "%Y-%m-%d");
-}
-
-function getDaysInMonth(year, month) {
-  return DateTime.daysInMonth(year, month);
-}
-
-function getWeekday(year, month, day) {
-  return DateTime.weekday(year, month, day);
-}
-
-function makeDate(year, month, day) {
-  return DateTime.makeDate(year, month, day);
-}
-
-function isDateInFuture(dateStr) {
-  if (!dateStr || dateStr === "") return false;
-  const [year, month, day] = dateStr.match(/(\d+)-(\d+)-(\d+)/).slice(1);
-  if (!year) return false;
-  return DateTime.isFuture(parseInt(year), parseInt(month), parseInt(day));
-}
-
-function generateCalendarData(habit, year, month, themeColor) {
-  const today = getCurrentDate();
-  const [todayYear, todayMonth, todayDay] = today.match(/(\d+)-(\d+)-(\d+)/).slice(1).map(Number);
-
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstWeekday = getWeekday(year, month, 1);
-  const startOffset = (firstWeekday + 6) % 7;
-
-  const days = [];
-
-  // Previous month padding
-  let prevMonth = month - 1;
-  let prevYear = year;
-  if (prevMonth === 0) {
-    prevMonth = 12;
-    prevYear = prevYear - 1;
-  }
-  const daysInPrevMonth = getDaysInMonth(prevYear, prevMonth);
-
-  for (let i = 0; i < startOffset; i++) {
-    const dayNum = daysInPrevMonth - startOffset + 1 + i;
-    days.push({
-      dayNumber: dayNum,
-      date: "",
-      isCurrentMonth: false,
-      isToday: false,
-      isCompleted: false,
-      themeColor: themeColor || "#6b5b95"
-    });
-  }
-
-  // Current month days
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = makeDate(year, month, d);
-    const isCompleted = habit.completions[dateStr] || false;
-    const isToday = (year === todayYear && month === todayMonth && d === todayDay);
-
-    days.push({
-      dayNumber: d,
-      date: dateStr,
-      isCurrentMonth: true,
-      isToday: isToday,
-      isCompleted: isCompleted,
-      themeColor: themeColor || "#6b5b95"
-    });
-  }
-
-  // Next month padding
-  const nextMonthDays = 42 - days.length;
-  for (let d = 1; d <= nextMonthDays; d++) {
-    days.push({
-      dayNumber: d,
-      date: "",
-      isCurrentMonth: false,
-      isToday: false,
-      isCompleted: false,
-      themeColor: themeColor || "#6b5b95"
-    });
-  }
-
-  return days;
-}
-
-function generateCalendarRows(habit, year, month, themeColor) {
-  const flatDays = generateCalendarData(habit, year, month, themeColor);
-  const rows = [];
-
-  for (let weekRow = 0; weekRow < 6; weekRow++) {
-    const rowDays = [];
-    for (let dayCol = 0; dayCol < 7; dayCol++) {
-      const dayIndex = weekRow * 7 + dayCol;
-      rowDays.push(flatDays[dayIndex]);
-    }
-    rows.push(rowDays);
-  }
-
-  return rows;
-}
-
-function getDayStyle(day, themeColor) {
-  const style = {
-    backgroundColor: "#3d3d3d",
-    color: "#ffffff"
-  };
-
-  if (day.isCompleted) {
-    style.backgroundColor = themeColor || "#4a90e2";
-  } else if (day.isToday) {
-    style.borderColor = themeColor || "#4a90e2";
-  } else if (!day.isCurrentMonth) {
-    style.backgroundColor = "#2d2d2d";
-  }
-
-  return style;
-}
-
-module.exports = {
   generateCalendarData,
   generateCalendarRows,
   getDayStyle,
-  isDateInFuture
-};
-@end
+  isDateInFuture,
+  getWeekHeaders,
+  getMonthLabel
+}
