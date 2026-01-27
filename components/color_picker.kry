@@ -3,7 +3,7 @@
 
 import { COLORS, DEFAULT_COLOR } from "components.color_palette"
 import Storage from "storage"
-import DateTime from "datetime"
+import { Habit } from "types"
 
 var openPickerHabitId = null
 
@@ -38,7 +38,7 @@ func handleColorClick(habit, color) {
   closePicker()
 }
 
-component ColorPicker(habit) {
+component ColorPicker(habit: Habit) {
   Row {
     display = flex
     alignItems = center
@@ -53,7 +53,7 @@ component ColorPicker(habit) {
     Button {
       width = 60
       height = 32
-      background = habit.color or DEFAULT_COLOR
+      background = habit.color || DEFAULT_COLOR
       border = {
         width = 0
         radius = 8

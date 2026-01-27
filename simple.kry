@@ -1,0 +1,29 @@
+// Simple Habits App - Minimal version that works with current codegen
+
+var habitName = "Meditation"
+var habitColor = "#9b59b6"
+
+App {
+  windowTitle = "Simple Habits"
+  windowWidth = 400
+  windowHeight = 300
+  backgroundColor = "#1a1a1a"
+
+  Text {
+    text = "Habits Tracker"
+    fontSize = 32
+    color = "#ffffff"
+  }
+
+  Container {
+    padding = 20
+
+    Text {
+      text = habitName
+      fontSize = 18
+      color = habitColor
+    }
+  }
+}
+
+return App;

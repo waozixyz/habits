@@ -6,10 +6,9 @@ import DateTime from "datetime"
 // Generate calendar data for a given habit and month
 func generateCalendarData(habit, year, month, themeColor) {
   var today = DateTime.today()
-  var todayParts = today.split("-")
-  var todayYear = todayParts[0].toNumber()
-  var todayMonth = todayParts[1].toNumber()
-  var todayDay = todayParts[2].toNumber()
+  var todayYear = today.year
+  var todayMonth = today.month
+  var todayDay = today.day
 
   var daysInMonth = DateTime.daysInMonth(year, month)
   var firstWeekday = DateTime.weekday(year, month, 1)
@@ -43,8 +42,8 @@ func generateCalendarData(habit, year, month, themeColor) {
   // Current month days
   for d in 1..daysInMonth {
     var dateStr = DateTime.makeDate(year, month, d)
-    var isCompleted = habit.completions[dateStr] or false
-    var isToday = (year == todayYear and month == todayMonth and d == todayDay)
+    var isCompleted = habit.completions[dateStr] || false
+    var isToday = (year == todayYear && month == todayMonth && d == todayDay)
     var isFuture = DateTime.isFutureDate(dateStr)
 
     var backgroundColor = "#3d3d3d"
@@ -52,9 +51,9 @@ func generateCalendarData(habit, year, month, themeColor) {
     var color = "#ffffff"
 
     if isCompleted {
-      backgroundColor = themeColor or "#4a90e2"
+      backgroundColor = themeColor || "#4a90e2"
     } else if isToday {
-      borderColor = themeColor or "#4a90e2"
+      borderColor = themeColor || "#4a90e2"
     } else if isFuture {
       color = "#666666"
     }

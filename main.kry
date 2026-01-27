@@ -23,14 +23,14 @@ func loadHabits() {
       habit.color = DEFAULT_COLOR
     }
     if !habit.createdAt {
-      habit.createdAt = today
+      habit.createdAt = today.toString()
     }
   }
 
   if habits.length == 0 {
     habits = [
-      Habit { name = "Meditation", color = "#9b59b6" },
-      Habit { name = "Exercise", color = "#27ae60" }
+      Habit { name = "Meditation"; color = "#9b59b6" },
+      Habit { name = "Exercise"; color = "#27ae60" }
     ]
   }
 

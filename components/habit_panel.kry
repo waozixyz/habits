@@ -6,6 +6,7 @@ import DateTime from "datetime"
 import { COLORS, DEFAULT_COLOR } from "components.color_palette"
 import Calendar from "components.calendar"
 import { Habit } from "types"
+import ColorPicker from "components.color_picker"
 
 var displayedMonth = {
   year = DateTime.now().year,
@@ -27,7 +28,16 @@ func navigateMonth(delta) {
 
 func isCurrentMonth() {
   var now = DateTime.now()
-  return displayedMonth.year == now.year and displayedMonth.month == now.month
+  var currentYear = now.year
+  var currentMonth = now.month
+  var dispYear = displayedMonth.year
+  var dispMonth = displayedMonth.month
+  if dispYear == currentYear {
+    if dispMonth == currentMonth {
+      return true
+    }
+  }
+  return false
 }
 
 func getMonthLabel() {
@@ -61,7 +71,7 @@ component HabitPanel (habit: Habit) extends TabPanel {
   }
 
   func handleDayClick(day) {
-    if !day.disabled and day.isCurrentMonth and day.date != "" {
+    if !day.disabled && day.isCurrentMonth && day.date != "" {
       var habits = Storage.load("habits")
       var index = findHabitIndex(habits, habit.id)
       if index >= 0 {
@@ -76,7 +86,7 @@ component HabitPanel (habit: Habit) extends TabPanel {
   }
 
   func getHabitColor() {
-    return habit.color or DEFAULT_COLOR
+    return habit.color || DEFAULT_COLOR
   }
 
   // Title row (editable habit name)

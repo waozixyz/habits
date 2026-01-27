@@ -5,7 +5,7 @@ import { getRandomColor } from "components.color_palette"
 struct Habit {
   id = UUID.v4()
   name = "New Habit"
-  createdAt = DateTime.today()
+  createdAt = DateTime.today().toString()
   completions = {}
   color = getRandomColor()
 }
